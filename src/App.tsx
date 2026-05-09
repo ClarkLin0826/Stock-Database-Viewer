@@ -246,6 +246,24 @@ export default function App() {
     );
   }, [data, columns, searchTerm]);
 
+  if (loadingSheets && Object.keys(allSheetsData).length === 0 && !error) {
+    return (
+      <div className="flex h-screen bg-gray-50 flex-col items-center justify-center font-sans">
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center max-w-sm w-full mx-4 animate-in fade-in zoom-in-95 duration-500">
+          <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 shadow-inner">
+            <Table2 className="w-8 h-8 text-indigo-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">我的股票資料庫</h2>
+          <p className="text-gray-500 text-sm mb-6 text-center">正在從 Google 試算表同步資料，請稍候...</p>
+          <div className="flex gap-2 items-center text-indigo-600 font-medium">
+             <RefreshCcw className="w-5 h-5 animate-spin" />
+             載入中...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden text-gray-900 font-sans">
       
@@ -273,42 +291,26 @@ export default function App() {
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-2">工作表清單</h3>
           
-          {loadingSheets ? (
-             <div className="flex justify-center py-8">
-                <RefreshCcw className="w-5 h-5 text-indigo-400 animate-spin" />
-             </div>
-          ) : (
-            <ul className="space-y-1">
-              {sheets.map(sheet => (
-                <li key={sheet}>
-                  <button
-                    onClick={() => {
-                        setSelectedSheet(sheet);
-                        if (window.innerWidth < 768) setIsSidebarOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                      selectedSheet === sheet 
-                        ? 'bg-indigo-50 text-indigo-700 font-medium' 
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                    }`}
-                  >
-                     <span className="truncate">{sheet}</span>
-                     {selectedSheet === sheet && <ChevronRight className="w-4 h-4 text-indigo-500" />}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        
-        <div className="p-4 border-t border-gray-200 bg-gray-50 shrink-0">
-           <button
-             onClick={() => setShowGasCode(true)}
-             className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 hover:bg-gray-100 shadow-sm transition-colors"
-           >
-              <Code className="w-4 h-4" />
-              GAS 程式碼設定
-           </button>
+          <ul className="space-y-1">
+            {sheets.map(sheet => (
+              <li key={sheet}>
+                <button
+                  onClick={() => {
+                      setSelectedSheet(sheet);
+                      if (window.innerWidth < 768) setIsSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                    selectedSheet === sheet 
+                      ? 'bg-indigo-50 text-indigo-700 font-medium' 
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                   <span className="truncate">{sheet}</span>
+                   {selectedSheet === sheet && <ChevronRight className="w-4 h-4 text-indigo-500" />}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       </aside>
 
