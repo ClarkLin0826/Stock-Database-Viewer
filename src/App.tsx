@@ -18,6 +18,9 @@ export default function App() {
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
   const [loadingSheets, setLoadingSheets] = useState(false);
   
+  // Row Detail Modal
+  const [selectedRowInfo, setSelectedRowInfo] = useState<Record<string, any> | null>(null);
+  
   // GAS Code modal state
   const [showGasCode, setShowGasCode] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -421,7 +424,11 @@ export default function App() {
                            </tr>
                         ) : filteredData.length > 0 ? (
                             filteredData.slice(0, 100).map((row, rowIdx) => (
-                            <tr key={rowIdx} className="hover:bg-indigo-50/40 transition-colors">
+                            <tr 
+                                key={rowIdx} 
+                                onClick={() => setSelectedRowInfo(row)}
+                                className="hover:bg-indigo-50/40 transition-colors cursor-pointer"
+                            >
                                 {columns.map((col, colIdx) => {
                                 const cellValue = row[col];
                                 const isNumericStr = !isNaN(Number(cellValue)) && cellValue !== '' && cellValue !== null;
@@ -475,6 +482,60 @@ export default function App() {
           </div>
         </div>
       </main>
+
+      {/* Row Detail Modal for Mobile / Deep View */}
+      {selectedRowInfo && (
+         <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex flex-col items-center justify-end md:justify-center p-0 md:p-4 animate-in fade-in duration-200">
+            <div 
+               className="bg-white w-full md:max-w-xl rounded-t-3xl md:rounded-2xl shadow-xl flex flex-col md:max-h-[85vh] max-h-[90vh] animate-in slide-in-from-bottom-8 md:zoom-in-95 duration-300"
+            >
+               <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white rounded-t-3xl md:rounded-t-2xl sticky top-0 z-10">
+                  <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2 truncate pr-4">
+                     {selectedRowInfo['名稱'] || selectedRowInfo['代號'] || selectedRowInfo[columns[0]] || '詳細資訊'}
+                  </h3>
+                  <button 
+                     onClick={() => setSelectedRowInfo(null)} 
+                     className="text-gray-400 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors shrink-0"
+                  >
+                     ✕
+                  </button>
+               </div>
+               
+               <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50 custom-scrollbar">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     {columns.map((col, idx) => {
+                        const cellValue = selectedRowInfo[col];
+                        const isNumericStr = !isNaN(Number(cellValue)) && cellValue !== '' && cellValue !== null;
+                        const isNegative = isNumericStr && Number(cellValue) < 0;
+                        const isPositive = isNumericStr && Number(cellValue) > 0;
+                        
+                        return (
+                           <div key={idx} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-1">
+                              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{col}</span>
+                              <span className={`text-base font-medium break-words ${
+                                 isNegative ? 'text-rose-600' : 
+                                 isPositive ? 'text-emerald-600' : 
+                                 'text-gray-900'
+                              }`}>
+                                 {cellValue || '-'}
+                              </span>
+                           </div>
+                        );
+                     })}
+                  </div>
+               </div>
+               
+               <div className="px-6 py-4 border-t border-gray-100 bg-white flex justify-end shrink-0 rounded-b-2xl">
+                  <button
+                     onClick={() => setSelectedRowInfo(null)}
+                     className="w-full md:w-auto px-6 py-2.5 bg-gray-900 text-white font-medium rounded-xl hover:bg-gray-800 shadow-sm transition-colors active:scale-[0.98]"
+                  >
+                     關閉
+                  </button>
+               </div>
+            </div>
+         </div>
+      )}
 
       {/* GAS Code Modal */}
       {showGasCode && (
