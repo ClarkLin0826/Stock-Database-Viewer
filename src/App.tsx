@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Papa from 'papaparse';
-import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText } from 'lucide-react';
+import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check } from 'lucide-react';
 
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyoKmgydF-B4Um-F07SmCvHOiHuufvRcLsnOGTS8QWKtP3869vYOkRYz-EOkcuPW1r1/exec";
 
@@ -17,6 +17,7 @@ export default function App() {
   const [allSheetsData, setAllSheetsData] = useState<Record<string, any[]>>({});
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
   const [loadingSheets, setLoadingSheets] = useState(false);
+  const [selectedIntersectSheets, setSelectedIntersectSheets] = useState<string[]>([]);
   
   // Row Detail Modal
   const [selectedRowInfo, setSelectedRowInfo] = useState<Record<string, any> | null>(null);
@@ -24,6 +25,13 @@ export default function App() {
   // GAS Code modal state
   const [showGasCode, setShowGasCode] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Month filter state
+  const [selectedMonth, setSelectedMonth] = useState<string>("ALL");
+
+  useEffect(() => {
+     setSelectedMonth("ALL");
+  }, [selectedSheet]);
 
   const SHEET_DESCRIPTIONS: Record<string, string> = {
     '上市價量齊揚': '股價六天新高，成交量大於前一天30%',
@@ -210,10 +218,69 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (selectedSheet && !needsGasUpdate) {
+    if (selectedSheet && selectedSheet !== 'MULTI_FILTER' && !needsGasUpdate) {
       loadData(selectedSheet);
     }
   }, [selectedSheet, needsGasUpdate]);
+
+  useEffect(() => {
+    if (selectedSheet === 'MULTI_FILTER') {
+       if (selectedIntersectSheets.length === 0) {
+           setData([]);
+           setColumns([]);
+           setError(null);
+           return;
+       }
+       setError(null);
+       if (selectedIntersectSheets.length === 1) {
+           const sheetData = allSheetsData[selectedIntersectSheets[0]] || [];
+           setData(sheetData);
+           setColumns(sheetData.length > 0 ? Object.keys(sheetData[0]) : []);
+           return;
+       }
+       
+       const baseSheet = selectedIntersectSheets[0];
+       const baseData = allSheetsData[baseSheet] || [];
+       const otherSheets = selectedIntersectSheets.slice(1);
+       
+       const otherSheetsSymbolSets = otherSheets.map(sheet => {
+          const sData = allSheetsData[sheet] || [];
+          return new Set(sData.map(row => row['代號'] || row['公司代號']).filter(Boolean));
+       });
+
+       const intersected = baseData.filter(row => {
+          const id = row['代號'] || row['公司代號'];
+          if (!id) return false;
+          return otherSheetsSymbolSets.every(set => set.has(id));
+       });
+       
+       setData(intersected);
+       setColumns(intersected.length > 0 ? Object.keys(intersected[0]) : []);
+    }
+  }, [selectedSheet, selectedIntersectSheets, allSheetsData]);
+
+  const toggleIntersectSheet = (sheet: string) => {
+    setSelectedIntersectSheets(prev => {
+       if (prev.includes(sheet)) {
+          return prev.filter(s => s !== sheet);
+       } else {
+          // Trigger fetch if not loaded
+          if (!allSheetsData[sheet]) {
+             setLoading(true);
+             fetch(`${apiUrl}?sheetName=${encodeURIComponent(sheet)}`)
+                 .then(res => res.json())
+                 .then(fetchedData => {
+                    if (Array.isArray(fetchedData)) {
+                       setAllSheetsData(all => ({ ...all, [sheet]: fetchedData }));
+                    }
+                 })
+                 .catch(err => console.error(`Fetch error for ${sheet}`, err))
+                 .finally(() => setLoading(false));
+          }
+          return [...prev, sheet];
+       }
+    });
+  };
 
   const gasCode = `function doGet(e) {
   try {
@@ -308,16 +375,55 @@ export default function App() {
     });
   };
 
+  const dateColumns = ['發言日期', '發布日期', '日期', '年月', '資料年月', '公告月份', '月份', '發生日期', '發言時間'];
+
+  const availableMonths = useMemo(() => {
+    if (!['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(selectedSheet || '')) return [];
+    
+    let targetCol = columns.find(c => dateColumns.includes(c)) || columns.find(c => c.includes('日期') || c.includes('月'));
+    if (!targetCol) return [];
+
+    const months = new Set<string>();
+    data.forEach(row => {
+       const val = row[targetCol!];
+       if (val) {
+          const strVal = String(val).trim();
+          const matchDate = strVal.match(/^(\d{2,4}[/-]\d{1,2})/);
+          if (matchDate) {
+             months.add(matchDate[1]);
+          } else if (strVal.match(/^\d{2,4}年\d{1,2}月/)) {
+             const m = strVal.match(/^(\d{2,4}年\d{1,2}月)/);
+             if (m) months.add(m[1]);
+          } else if (strVal.match(/^\d{3,4}\/?\d{2}$/)) {
+             months.add(strVal);
+          }
+       }
+    });
+    return Array.from(months).sort((a, b) => b.localeCompare(a));
+  }, [data, columns, selectedSheet]);
+
   const filteredData = useMemo(() => {
-    if (!searchTerm) return data;
+    let result = data;
+    
+    if (selectedMonth !== "ALL" && selectedSheet && ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(selectedSheet)) {
+       let targetCol = columns.find(c => dateColumns.includes(c)) || columns.find(c => c.includes('日期') || c.includes('月'));
+       if (targetCol) {
+          result = result.filter(row => {
+             const val = String(row[targetCol!] || '').trim();
+             return val.startsWith(selectedMonth) || val.includes(selectedMonth);
+          });
+       }
+    }
+
+    if (!searchTerm) return result;
     const lowerSearch = searchTerm.toLowerCase();
-    return data.filter(row => 
+    return result.filter(row => 
       columns.some(col => {
          const val = row[col];
          return val !== null && val !== undefined && String(val).toLowerCase().includes(lowerSearch);
       })
     );
-  }, [data, columns, searchTerm]);
+  }, [data, columns, searchTerm, selectedMonth, selectedSheet]);
 
   if (loadingSheets && Object.keys(allSheetsData).length === 0 && !error) {
     return (
@@ -362,27 +468,67 @@ export default function App() {
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+          <div className="mb-4">
+             <button
+               onClick={() => {
+                 if (selectedSheet === 'MULTI_FILTER') {
+                    setSelectedSheet(sheets.length > 0 ? sheets[0] : null);
+                 } else {
+                    setSelectedSheet('MULTI_FILTER');
+                    if (window.innerWidth < 768) setIsSidebarOpen(false);
+                 }
+               }}
+               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
+                 selectedSheet === 'MULTI_FILTER'
+                   ? "bg-indigo-600 text-white shadow-md shadow-indigo-200 font-medium"
+                   : "text-gray-600 hover:bg-indigo-50 hover:text-indigo-600"
+               }`}
+             >
+               <div className="flex items-center gap-2">
+                 <div className={`p-1 rounded-md ${selectedSheet === 'MULTI_FILTER' ? 'bg-indigo-500 text-white' : 'bg-indigo-50 text-indigo-500'}`}>
+                    <Filter className="w-4 h-4" />
+                 </div>
+                 <span className="truncate">多重條件交集</span>
+               </div>
+               {selectedSheet === 'MULTI_FILTER' && <ChevronRight className="w-4 h-4 text-indigo-200" />}
+             </button>
+          </div>
+
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-2">工作表清單</h3>
           
           <ul className="space-y-1">
-            {sheets.map(sheet => (
+            {sheets.map(sheet => {
+              const isIntersectSelected = selectedSheet === 'MULTI_FILTER' && selectedIntersectSheets.includes(sheet);
+              return (
               <li key={sheet}>
                 <button
                   onClick={() => {
-                      setSelectedSheet(sheet);
-                      if (window.innerWidth < 768) setIsSidebarOpen(false);
+                      if (selectedSheet === 'MULTI_FILTER') {
+                         toggleIntersectSheet(sheet);
+                      } else {
+                         setSelectedSheet(sheet);
+                         if (window.innerWidth < 768) setIsSidebarOpen(false);
+                      }
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                  className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
                     selectedSheet === sheet 
                       ? 'bg-indigo-50 text-indigo-700 font-medium' 
+                      : isIntersectSelected
+                      ? 'bg-indigo-50 text-indigo-600 font-medium'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                 >
-                   <span className="truncate">{sheet}</span>
-                   {selectedSheet === sheet && <ChevronRight className="w-4 h-4 text-indigo-500" />}
+                   <span className="truncate py-0.5">{sheet}</span>
+                   {selectedSheet === 'MULTI_FILTER' ? (
+                       <div className={`w-4 h-4 rounded shadow-sm flex items-center justify-center shrink-0 border transition-all ${isIntersectSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 bg-white group-hover:border-indigo-400'}`}>
+                          {isIntersectSelected && <Check className="w-3 h-3" />}
+                       </div>
+                   ) : (
+                       selectedSheet === sheet && <ChevronRight className="w-4 h-4 text-indigo-500 mr-1" />
+                   )}
                 </button>
               </li>
-            ))}
+            )})}
           </ul>
         </div>
       </aside>
@@ -398,13 +544,13 @@ export default function App() {
                <Menu className="w-5 h-5" />
             </button>
             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-               {selectedSheet || "載入中..."}
+               {selectedSheet === 'MULTI_FILTER' ? "多重條件交集" : (selectedSheet || "載入中...")}
             </h2>
           </div>
           
           <div className="flex items-center gap-2 sm:gap-3">
              <button
-               onClick={() => selectedSheet ? loadData(selectedSheet, true) : fetchSheets()}
+               onClick={() => selectedSheet && selectedSheet !== 'MULTI_FILTER' ? loadData(selectedSheet, true) : fetchSheets()}
                disabled={loading}
                className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50"
              >
@@ -414,9 +560,7 @@ export default function App() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-50 relative custom-scrollbar">
-          <div className="max-w-7xl mx-auto space-y-6">
-            
+        <div className="flex-1 flex flex-col p-4 sm:p-6 bg-gray-50 overflow-hidden space-y-4 sm:space-y-6">
             {needsGasUpdate && (
                <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm animate-in fade-in slide-in-from-top-4">
                   <div className="flex-1">
@@ -446,7 +590,36 @@ export default function App() {
               </div>
             ) : (
               <>
-                {selectedSheet && SHEET_DESCRIPTIONS[selectedSheet] && (
+                {selectedSheet === 'MULTI_FILTER' && (
+                  <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm animate-in fade-in">
+                    <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <Filter className="w-5 h-5 text-indigo-500" />
+                      選擇要交集的工作表
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {sheets.map(sheet => {
+                          const isSelected = selectedIntersectSheets.includes(sheet);
+                          return (
+                            <button
+                                key={sheet}
+                                onClick={() => toggleIntersectSheet(sheet)}
+                                className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
+                                  isSelected 
+                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100' 
+                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                {isSelected && <Check className="w-3.5 h-3.5" />}
+                                {sheet}
+                              </div>
+                            </button>
+                          );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {selectedSheet && selectedSheet !== 'MULTI_FILTER' && SHEET_DESCRIPTIONS[selectedSheet] && (
                   <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 shadow-sm flex items-start gap-3 animate-in fade-in">
                     <div className="bg-indigo-100 text-indigo-600 rounded-full p-1 shrink-0 mt-0.5">
                        <AlertCircle className="w-4 h-4" />
@@ -467,8 +640,20 @@ export default function App() {
                         <p className="text-3xl font-bold mt-1 text-gray-900">{columns.length}</p>
                     </div>
                     
-                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm col-span-1 md:col-span-2 flex items-center">
-                        <div className="w-full relative">
+                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm col-span-1 md:col-span-2 flex items-center gap-3">
+                        {availableMonths.length > 0 && (
+                            <select
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(e.target.value)}
+                                className="block w-32 md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                            >
+                                <option value="ALL">全部月份</option>
+                                {availableMonths.map(m => (
+                                    <option key={m} value={m}>{m}</option>
+                                ))}
+                            </select>
+                        )}
+                        <div className="flex-1 relative">
                             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                                 <Search className="h-5 w-5 text-gray-400" />
                             </div>
@@ -483,7 +668,7 @@ export default function App() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" style={{ minHeight: '400px' }}>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-[300px]">
                     <div className="overflow-auto custom-scrollbar flex-1 relative">
                     <table className="w-full text-sm text-left">
                       <thead className="text-xs text-gray-600 uppercase bg-gray-50 border-b border-gray-200 sticky top-0 shadow-sm z-10">
@@ -501,6 +686,13 @@ export default function App() {
                               <td colSpan={columns.length || 1} className="px-6 py-20 text-center">
                                  <RefreshCcw className="w-8 h-8 text-indigo-400 animate-spin mx-auto mb-3" />
                                  <p className="text-gray-500 text-sm">正在載入資料...</p>
+                              </td>
+                           </tr>
+                        ) : selectedSheet === 'MULTI_FILTER' && selectedIntersectSheets.length === 0 ? (
+                           <tr>
+                              <td colSpan={columns.length || 1} className="px-6 py-20 text-center">
+                                 <Filter className="w-12 h-12 text-indigo-200 mx-auto mb-4" />
+                                 <p className="text-gray-500 text-lg">請選擇至少一個工作表</p>
                               </td>
                            </tr>
                         ) : filteredData.length > 0 ? (
@@ -560,7 +752,6 @@ export default function App() {
                   </div>
                </div>
             )}
-          </div>
         </div>
       </main>
 
