@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Papa from 'papaparse';
-import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check } from 'lucide-react';
+import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyoKmgydF-B4Um-F07SmCvHOiHuufvRcLsnOGTS8QWKtP3869vYOkRYz-EOkcuPW1r1/exec";
 
@@ -425,6 +425,103 @@ export default function App() {
     );
   }, [data, columns, searchTerm, selectedMonth, selectedSheet]);
 
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    } else if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
+      // Third click removes sorting, or we can just toggle back to asc. Let's toggle between asc and desc, or clear it.
+      // Usually users prefer toggling: asc -> desc -> null
+      setSortConfig(null);
+      return;
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedData = useMemo(() => {
+    let sortableItems = [...filteredData];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+        
+        // Handle nulls/undefined
+        if (aValue === null || aValue === undefined || aValue === '') return sortConfig.direction === 'asc' ? 1 : -1;
+        if (bValue === null || bValue === undefined || bValue === '') return sortConfig.direction === 'asc' ? -1 : 1;
+        
+        // Custom sort orders
+        if (sortConfig.key.includes('本益比狀態')) {
+           const aStr = String(aValue);
+           const bStr = String(bValue);
+           const getPeOrder = (val: string) => {
+              if (val.includes('高估')) return 5;
+              if (val.includes('略高')) return 4;
+              if (val.includes('合理')) return 3;
+              if (val.includes('低估')) return 2;
+              if (val.includes('NA')) return 1;
+              return 0;
+           };
+           const aOrder = getPeOrder(aStr);
+           const bOrder = getPeOrder(bStr);
+           if (aOrder !== bOrder) {
+               return sortConfig.direction === 'asc' ? aOrder - bOrder : bOrder - aOrder;
+           }
+        }
+
+        if (sortConfig.key.includes('乖離率狀態')) {
+           const aStr = String(aValue);
+           const bStr = String(bValue);
+           const getBiasOrder = (val: string) => {
+              if (val.includes('瘋狂')) return 5;
+              if (val.includes('過熱')) return 4;
+              if (val.includes('正常')) return 3;
+              if (val.includes('極度超賣')) return 1; // MUST PRECEED 超賣
+              if (val.includes('超賣')) return 2;
+              return 0;
+           };
+           const aOrder = getBiasOrder(aStr);
+           const bOrder = getBiasOrder(bStr);
+           if (aOrder !== bOrder) {
+               return sortConfig.direction === 'asc' ? aOrder - bOrder : bOrder - aOrder;
+           }
+        }
+
+        // Try parsing to number
+        const aNum = Number(aValue);
+        const bNum = Number(bValue);
+        const isNumeric = !isNaN(aNum) && !isNaN(bNum);
+
+        if (isNumeric) {
+           return sortConfig.direction === 'asc' ? aNum - bNum : bNum - aNum;
+        }
+
+        // Try parsing as percentage if it contains %
+        if (typeof aValue === 'string' && typeof bValue === 'string' && aValue.includes('%') && bValue.includes('%')) {
+           const aPct = parseFloat(aValue.replace(/%/g, ''));
+           const bPct = parseFloat(bValue.replace(/%/g, ''));
+           if (!isNaN(aPct) && !isNaN(bPct)) {
+              return sortConfig.direction === 'asc' ? aPct - bPct : bPct - aPct;
+           }
+        }
+
+        // Fallback to string comparison
+        aValue = String(aValue).toLowerCase();
+        bValue = String(bValue).toLowerCase();
+        
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [filteredData, sortConfig]);
+
   if (loadingSheets && Object.keys(allSheetsData).length === 0 && !error) {
     return (
       <div className="flex h-[100dvh] w-full bg-indigo-50/30 flex-col items-center justify-center font-sans animate-in fade-in duration-500">
@@ -674,8 +771,19 @@ export default function App() {
                       <thead className="text-xs text-gray-600 uppercase bg-gray-50 border-b border-gray-200 sticky top-0 shadow-sm z-10">
                         <tr>
                           {columns.map((col, idx) => (
-                            <th key={idx} className="px-5 py-3.5 font-semibold whitespace-nowrap border-r border-gray-100 last:border-0 hover:bg-gray-100/50 cursor-default">
-                              {col}
+                            <th 
+                                key={idx} 
+                                onClick={() => handleSort(col)}
+                                className="px-5 py-3.5 font-semibold whitespace-nowrap border-r border-gray-100 last:border-0 hover:bg-gray-200/60 cursor-pointer select-none group"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                {col}
+                                {sortConfig?.key === col ? (
+                                   sortConfig.direction === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-600" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-600" />
+                                ) : (
+                                   <ArrowUpDown className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                )}
+                              </div>
                             </th>
                           ))}
                         </tr>
@@ -695,8 +803,8 @@ export default function App() {
                                  <p className="text-gray-500 text-lg">請選擇至少一個工作表</p>
                               </td>
                            </tr>
-                        ) : filteredData.length > 0 ? (
-                            filteredData.slice(0, 100).map((row, rowIdx) => (
+                        ) : sortedData.length > 0 ? (
+                            sortedData.slice(0, 100).map((row, rowIdx) => (
                             <tr 
                                 key={rowIdx} 
                                 onClick={() => setSelectedRowInfo(row)}
@@ -735,9 +843,9 @@ export default function App() {
                       </tbody>
                     </table>
                   </div>
-                  {filteredData.length > 100 && (
+                  {sortedData.length > 100 && (
                      <div className="p-3 bg-gray-50 text-center text-xs text-gray-500 border-t border-gray-200">
-                         僅顯示前 100 筆 (共 {filteredData.length} 筆)
+                         僅顯示前 100 筆 (共 {sortedData.length} 筆)
                      </div>
                   )}
                 </div>
