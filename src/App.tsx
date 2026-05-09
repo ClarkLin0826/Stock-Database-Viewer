@@ -24,6 +24,15 @@ export default function App() {
   // GAS Code modal state
   const [showGasCode, setShowGasCode] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const SHEET_DESCRIPTIONS: Record<string, string> = {
+    '上市價量齊揚': '股價六天新高，成交量大於前一天30%',
+    '上櫃價量齊揚': '股價六天新高，成交量大於前一天30%',
+    '上市_值得注意': '股價六天新高，營收六個月新高',
+    '上櫃_值得注意': '股價六天新高，營收六個月新高',
+    '投信連買篩選': '投信至少連續買超三天，股本5~50億的股票',
+    '主動型ETF每日差異': '全體曝險排行Top40'
+  };
   const [needsGasUpdate, setNeedsGasUpdate] = useState(false);
 
   // You can still manually test another URL in code, but UI hides it.
@@ -256,7 +265,7 @@ export default function App() {
           <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 shadow-inner">
             <Table2 className="w-8 h-8 text-indigo-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">我的股票資料庫</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">股票資料庫</h2>
           <p className="text-gray-500 text-sm mb-6 text-center">正在從 Google 試算表同步資料，請稍候...</p>
           <div className="flex gap-2 items-center text-indigo-600 font-medium">
              <RefreshCcw className="w-5 h-5 animate-spin" />
@@ -287,7 +296,7 @@ export default function App() {
         <div className="h-16 flex items-center px-4 border-b border-gray-200 shrink-0">
           <div className="flex items-center gap-2 text-indigo-600">
              <Table2 className="w-6 h-6" />
-             <span className="font-bold text-lg whitespace-nowrap">我的股票資料庫</span>
+             <span className="font-bold text-lg whitespace-nowrap">股票資料庫</span>
           </div>
         </div>
         
@@ -376,6 +385,17 @@ export default function App() {
               </div>
             ) : (
               <>
+                {selectedSheet && SHEET_DESCRIPTIONS[selectedSheet] && (
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 shadow-sm flex items-start gap-3 animate-in fade-in">
+                    <div className="bg-indigo-100 text-indigo-600 rounded-full p-1 shrink-0 mt-0.5">
+                       <AlertCircle className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-semibold text-indigo-900 mb-0.5">工作表說明</h4>
+                        <p className="text-indigo-800 text-sm leading-relaxed">{SHEET_DESCRIPTIONS[selectedSheet]}</p>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm col-span-1">
                         <h3 className="text-sm font-medium text-gray-500">總資料筆數</h3>
