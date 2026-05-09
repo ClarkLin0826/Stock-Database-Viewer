@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() { return request.auth != null; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 200; }
+
+    function isValidFavoriteStock(data) {
+      return data.keys().hasAll(['userId', 'symbol', 'name', 'createdAt']) &&
+             data.userId == request.auth.uid;
+    }
+
+    match /users/{userId}/favorites/{stockId} {
+      allow get: if isSignedIn() && request.auth.uid == userId;
+      allow list: if isSignedIn() && request.auth.uid == userId;
+      
+      allow create: if isSignedIn() && 
+                    request.auth.uid == userId && 
+                    isValidFavoriteStock(incoming());
+                    
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+  }
+}

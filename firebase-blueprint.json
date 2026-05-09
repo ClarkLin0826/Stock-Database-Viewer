@@ -1,0 +1,36 @@
+{
+  "entities": {
+    "FavoriteStock": {
+      "title": "FavoriteStock",
+      "description": "A stock saved by a user to their favorites list.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who saved this stock."
+        },
+        "symbol": {
+          "type": "string",
+          "description": "The stock symbol or ID."
+        },
+        "name": {
+          "type": "string",
+          "description": "The stock name."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Server timestamp of creation."
+        }
+      },
+      "required": ["userId", "symbol", "name", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}/favorites/{stockId}": {
+      "schema": {
+        "$ref": "#/entities/FavoriteStock"
+      },
+      "description": "User's favorite stocks."
+    }
+  }
+}

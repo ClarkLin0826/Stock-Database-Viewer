@@ -1,6 +1,55 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Papa from 'papaparse';
-import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown, Heart, LogOut, User } from 'lucide-react';
+import { db, auth } from './lib/firebase';
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User as FirebaseUser } from 'firebase/auth';
+import { collection, doc, setDoc, deleteDoc, getDocs, onSnapshot, serverTimestamp } from 'firebase/firestore';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyoKmgydF-B4Um-F07SmCvHOiHuufvRcLsnOGTS8QWKtP3869vYOkRYz-EOkcuPW1r1/exec";
 
@@ -30,6 +79,71 @@ export default function App() {
 
   // Month filter state
   const [selectedMonth, setSelectedMonth] = useState<string>("ALL");
+
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Auth setup
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setAuthLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  // Fetch favorites
+  useEffect(() => {
+    if (!currentUser) {
+      setFavorites(new Set());
+      return;
+    }
+    const path = `users/${currentUser.uid}/favorites`;
+    const q = collection(db, path);
+    const unsub = onSnapshot(q, (snapshot) => {
+      const favs = new Set<string>();
+      snapshot.docs.forEach(doc => favs.add(doc.data().symbol));
+      setFavorites(favs);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, path);
+    });
+    return () => unsub();
+  }, [currentUser]);
+
+  const toggleFavorite = async (e: React.MouseEvent, row: any) => {
+    e.stopPropagation();
+    if (!currentUser) {
+      signInWithPopup(auth, new GoogleAuthProvider()).catch(console.error);
+      return;
+    }
+    const symbol = String(row['代號'] || row['公司代號']).trim();
+    const name = row['名稱'] || row['公司名稱'];
+    if (!symbol) return;
+    
+    if (favorites.has(symbol)) {
+      // Remove
+      const docPath = `users/${currentUser.uid}/favorites/${symbol}`;
+      try {
+        await deleteDoc(doc(db, docPath));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, docPath);
+      }
+    } else {
+      // Add
+      const docPath = `users/${currentUser.uid}/favorites/${symbol}`;
+      try {
+        await setDoc(doc(db, docPath), {
+          userId: currentUser.uid,
+          symbol: String(symbol),
+          name: name ? String(name) : '',
+          createdAt: serverTimestamp(),
+        });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.CREATE, docPath);
+      }
+    }
+  };
 
   useEffect(() => {
      setSelectedMonth("ALL");
@@ -220,10 +334,34 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (selectedSheet === 'FAVORITES') {
+       if (!currentUser) {
+          setData([]);
+          setColumns([]);
+          return;
+       }
+       // Build data from allSheetsData finding favorites mapping by symbol
+       const allRows = Object.values(allSheetsData).flat();
+       // To dedup, maybe we just use standard fields like "代號" or "公司代號"
+       const favData: any[] = [];
+       // Also the favorite set itself has names:
+       // We can simply show them if we can't find extra data, but let's try to map extra data if available
+       const uniqueSymbols = Array.from(favorites);
+       uniqueSymbols.forEach(symbol => {
+          let row = allRows.find(r => (r['代號'] === symbol || r['公司代號'] === symbol));
+          if (!row) {
+             row = { '代號': symbol, '名稱': '' };
+          }
+          favData.push(row);
+       });
+       setData(favData);
+       setColumns(favData.length > 0 ? Object.keys(favData[0]) : []);
+       return;
+    }
     if (selectedSheet && selectedSheet !== 'MULTI_FILTER' && !needsGasUpdate) {
       loadData(selectedSheet);
     }
-  }, [selectedSheet, needsGasUpdate]);
+  }, [selectedSheet, needsGasUpdate, favorites, currentUser]);
 
   useEffect(() => {
     if (selectedSheet === 'MULTI_FILTER') {
@@ -617,6 +755,30 @@ export default function App() {
              </button>
           </div>
 
+          <div className="mb-4">
+             <button
+               onClick={() => {
+                 if (selectedSheet !== 'FAVORITES') {
+                    setSelectedSheet('FAVORITES');
+                    if (window.innerWidth < 768) setIsSidebarOpen(false);
+                 }
+               }}
+               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
+                 selectedSheet === 'FAVORITES'
+                   ? "bg-pink-600 text-white shadow-md shadow-pink-200 font-medium"
+                   : "text-gray-600 hover:bg-pink-50 hover:text-pink-600"
+               }`}
+             >
+               <div className="flex items-center gap-2">
+                 <div className={`p-1 rounded-md ${selectedSheet === 'FAVORITES' ? 'bg-pink-500 text-white' : 'bg-pink-50 text-pink-500'}`}>
+                    <Heart className="w-4 h-4" />
+                 </div>
+                 <span className="truncate">自選股</span>
+               </div>
+               {selectedSheet === 'FAVORITES' && <ChevronRight className="w-4 h-4 text-pink-200" />}
+             </button>
+          </div>
+
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-2">工作表清單</h3>
           
           <ul className="space-y-1">
@@ -672,6 +834,39 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2 sm:gap-3">
+             <div className="mr-2 sm:mr-4 flex items-center">
+                 {!authLoading && (
+                   currentUser ? (
+                      <div className="flex items-center gap-3 bg-white/50 px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
+                         {currentUser.photoURL ? (
+                            <img src={currentUser.photoURL} alt="User" className="w-6 h-6 rounded-full" referrerPolicy="no-referrer" />
+                         ) : (
+                            <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center">
+                              <User className="w-4 h-4 text-indigo-600" />
+                            </div>
+                         )}
+                         <span className="text-sm font-medium text-gray-700 hidden sm:block max-w-[120px] truncate">
+                            {currentUser.displayName || currentUser.email}
+                         </span>
+                         <button 
+                            onClick={() => signOut(auth)}
+                            className="p-1 text-gray-400 hover:text-red-500 transition-colors tooltip"
+                            title="登出"
+                         >
+                            <LogOut className="w-4 h-4" />
+                         </button>
+                      </div>
+                   ) : (
+                      <button
+                        onClick={() => signInWithPopup(auth, new GoogleAuthProvider()).catch(console.error)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
+                      >
+                         <User className="w-4 h-4" />
+                         <span>登入以啟用自選股</span>
+                      </button>
+                   )
+                 )}
+             </div>
              <button
                onClick={() => selectedSheet && selectedSheet !== 'MULTI_FILTER' ? loadData(selectedSheet, true) : fetchSheets()}
                disabled={loading}
@@ -852,7 +1047,24 @@ export default function App() {
                                         }`}
                                         title={String(cellValue || '')}
                                     >
-                                        {cellValue || '-'}
+                                        {colIdx === 0 ? (
+                                           <div className="flex items-center gap-2">
+                                              <button 
+                                                 onClick={(e) => toggleFavorite(e, row)}
+                                                 className={`p-1 rounded-full transition-colors ${
+                                                    favorites.has(String(row['代號'] || row['公司代號']))
+                                                      ? 'text-pink-500 hover:bg-pink-100'
+                                                      : 'text-gray-300 hover:text-pink-400 hover:bg-pink-50'
+                                                 }`}
+                                                 title="加入自選"
+                                              >
+                                                <Heart className="w-4 h-4" fill={favorites.has(String(row['代號'] || row['公司代號'])) ? "currentColor" : "none"} />
+                                              </button>
+                                              <span className="truncate">{cellValue || '-'}</span>
+                                           </div>
+                                        ) : (
+                                           cellValue || '-'
+                                        )}
                                     </td>
                                 )
                                 })}
