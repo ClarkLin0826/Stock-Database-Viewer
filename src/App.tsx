@@ -26,9 +26,6 @@ export default function App() {
   // You can still manually test another URL in code, but UI hides it.
   const apiUrl = DEFAULT_API_URL;
 
-  const sheetId = '1g9a8dYJyQasjI2LpEw2RsHkT3aBZX-nO93KllENIN-c';
-  const viewerUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
-
   const fetchSheets = async () => {
     setLoadingSheets(true);
     setLoading(true);
@@ -252,9 +249,19 @@ export default function App() {
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden text-gray-900 font-sans">
       
+      {/* Mobile Sidebar Backdrop */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-gray-900/50 z-20 md:hidden transition-opacity" 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside 
-        className={`${isSidebarOpen ? 'w-64' : 'w-0'} shrink-0 bg-white border-r border-gray-200 transition-all duration-300 flex flex-col overflow-hidden z-20 shadow-sm`}
+        className={`fixed md:relative inset-y-0 left-0 z-30 shrink-0 bg-white border-r border-gray-200 transition-all duration-300 flex flex-col overflow-hidden shadow-sm ${
+          isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0 md:w-0 w-64'
+        }`}
       >
         <div className="h-16 flex items-center px-4 border-b border-gray-200 shrink-0">
           <div className="flex items-center gap-2 text-indigo-600">
