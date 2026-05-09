@@ -1,0 +1,6 @@
+{
+  "name": "Stock Database Viewer",
+  "description": "A web application to view and analyze stock data from a Google Spreadsheet.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
