@@ -4,6 +4,8 @@ import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, Chev
 
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyoKmgydF-B4Um-F07SmCvHOiHuufvRcLsnOGTS8QWKtP3869vYOkRYz-EOkcuPW1r1/exec";
 
+const DATE_COLUMNS = ['發言日期', '發布日期', '日期', '年月', '資料年月', '公告月份', '月份', '發生日期', '發言時間'];
+
 export default function App() {
   const [data, setData] = useState<any[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
@@ -232,19 +234,30 @@ export default function App() {
            return;
        }
        setError(null);
-       if (selectedIntersectSheets.length === 1) {
-           const sheetData = allSheetsData[selectedIntersectSheets[0]] || [];
-           setData(sheetData);
-           setColumns(sheetData.length > 0 ? Object.keys(sheetData[0]) : []);
-           return;
-       }
        
-       const baseSheet = selectedIntersectSheets[0];
-       const baseData = allSheetsData[baseSheet] || [];
-       const otherSheets = selectedIntersectSheets.slice(1);
+       const getFilteredSheetData = (sheetName: string) => {
+           let sData = allSheetsData[sheetName] || [];
+           if (selectedMonth !== "ALL" && ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(sheetName)) {
+               const sheetCols = Object.keys(sData[0] || {});
+               const targetCol = sheetCols.find(c => DATE_COLUMNS.includes(c)) || sheetCols.find(c => c.includes('日期') || c.includes('月'));
+               if (targetCol) {
+                   sData = sData.filter(row => {
+                      const val = String(row[targetCol!] || '').trim();
+                      return val.startsWith(selectedMonth) || val.includes(selectedMonth);
+                   });
+               }
+           }
+           return sData;
+       };
+
+       const dateSheetName = selectedIntersectSheets.find(s => ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(s));
+       
+       const baseSheet = dateSheetName || selectedIntersectSheets[0];
+       const baseData = getFilteredSheetData(baseSheet);
+       const otherSheets = selectedIntersectSheets.filter(s => s !== baseSheet);
        
        const otherSheetsSymbolSets = otherSheets.map(sheet => {
-          const sData = allSheetsData[sheet] || [];
+          const sData = getFilteredSheetData(sheet);
           return new Set(sData.map(row => row['代號'] || row['公司代號']).filter(Boolean));
        });
 
@@ -257,7 +270,7 @@ export default function App() {
        setData(intersected);
        setColumns(intersected.length > 0 ? Object.keys(intersected[0]) : []);
     }
-  }, [selectedSheet, selectedIntersectSheets, allSheetsData]);
+  }, [selectedSheet, selectedIntersectSheets, allSheetsData, selectedMonth]);
 
   const toggleIntersectSheet = (sheet: string) => {
     setSelectedIntersectSheets(prev => {
@@ -375,8 +388,6 @@ export default function App() {
     });
   };
 
-  const dateColumns = ['發言日期', '發布日期', '日期', '年月', '資料年月', '公告月份', '月份', '發生日期', '發言時間'];
-
   const hasDateSheet = selectedSheet === 'MULTI_FILTER' 
     ? selectedIntersectSheets.some(s => ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(s))
     : ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(selectedSheet || '');
@@ -384,11 +395,22 @@ export default function App() {
   const availableMonths = useMemo(() => {
     if (!hasDateSheet) return [];
     
-    let targetCol = columns.find(c => dateColumns.includes(c)) || columns.find(c => c.includes('日期') || c.includes('月'));
+    // Find which sheet is the date sheet
+    let dateSheetName = selectedSheet === 'MULTI_FILTER' 
+       ? selectedIntersectSheets.find(s => ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(s))
+       : selectedSheet;
+       
+    if (!dateSheetName) return [];
+    
+    const sheetData = allSheetsData[dateSheetName] || [];
+    if (sheetData.length === 0) return [];
+    
+    const sheetCols = Object.keys(sheetData[0] || {});
+    let targetCol = sheetCols.find(c => DATE_COLUMNS.includes(c)) || sheetCols.find(c => c.includes('日期') || c.includes('月'));
     if (!targetCol) return [];
 
     const months = new Set<string>();
-    data.forEach(row => {
+    sheetData.forEach(row => {
        const val = row[targetCol!];
        if (val) {
           const strVal = String(val).trim();
@@ -404,13 +426,13 @@ export default function App() {
        }
     });
     return Array.from(months).sort((a, b) => b.localeCompare(a));
-  }, [data, columns, hasDateSheet]);
+  }, [selectedSheet, selectedIntersectSheets, allSheetsData, hasDateSheet]);
 
   const filteredData = useMemo(() => {
     let result = data;
     
-    if (selectedMonth !== "ALL" && hasDateSheet) {
-       let targetCol = columns.find(c => dateColumns.includes(c)) || columns.find(c => c.includes('日期') || c.includes('月'));
+    if (selectedSheet !== 'MULTI_FILTER' && selectedMonth !== "ALL" && hasDateSheet) {
+       let targetCol = columns.find(c => DATE_COLUMNS.includes(c)) || columns.find(c => c.includes('日期') || c.includes('月'));
        if (targetCol) {
           result = result.filter(row => {
              const val = String(row[targetCol!] || '').trim();
@@ -427,7 +449,7 @@ export default function App() {
          return val !== null && val !== undefined && String(val).toLowerCase().includes(lowerSearch);
       })
     );
-  }, [data, columns, searchTerm, selectedMonth, hasDateSheet]);
+  }, [data, columns, searchTerm, selectedMonth, hasDateSheet, selectedSheet]);
 
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
@@ -891,7 +913,7 @@ export default function App() {
                               <span>技術線圖</span>
                               <ExternalLink className="w-3.5 h-3.5 ml-0.5 opacity-70" />
                            </a>
-                           {['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(selectedSheet || '') && (
+                           {hasDateSheet && (
                               <a 
                                  href={`https://mops.twse.com.tw/mops/#/web/t146sb05?companyId=${selectedRowInfo['代號'] || selectedRowInfo['公司代號']}`}
                                  target="_blank"
