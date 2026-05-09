@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Papa from 'papaparse';
-import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate } from 'lucide-react';
+import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink } from 'lucide-react';
 
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyoKmgydF-B4Um-F07SmCvHOiHuufvRcLsnOGTS8QWKtP3869vYOkRYz-EOkcuPW1r1/exec";
 
@@ -510,12 +510,27 @@ export default function App() {
                className="bg-white w-full md:max-w-xl rounded-t-3xl md:rounded-2xl shadow-xl flex flex-col md:max-h-[85vh] max-h-[90vh] animate-in slide-in-from-bottom-8 md:zoom-in-95 duration-300"
             >
                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white rounded-t-3xl md:rounded-t-2xl sticky top-0 z-10">
-                  <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2 truncate pr-4">
-                     {selectedRowInfo['名稱'] || selectedRowInfo['代號'] || selectedRowInfo[columns[0]] || '詳細資訊'}
-                  </h3>
+                  <div className="flex items-center gap-3 w-full pr-4 overflow-hidden">
+                     <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2 truncate shrink">
+                        {selectedRowInfo['名稱'] || selectedRowInfo['代號'] || selectedRowInfo[columns[0]] || '詳細資訊'}
+                     </h3>
+                     {selectedRowInfo['代號'] && (
+                        <a 
+                           href={`https://tw.stock.yahoo.com/quote/${selectedRowInfo['代號']}`}
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-lg transition-colors shrink-0"
+                           title="查看 Yahoo 奇摩股市技術線圖"
+                        >
+                           <LineChart className="w-4 h-4" />
+                           <span className="hidden sm:inline">技術線圖</span>
+                           <ExternalLink className="w-3.5 h-3.5 sm:hidden" />
+                        </a>
+                     )}
+                  </div>
                   <button 
                      onClick={() => setSelectedRowInfo(null)} 
-                     className="text-gray-400 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors shrink-0"
+                     className="text-gray-400 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors shrink-0 ml-2"
                   >
                      ✕
                   </button>
