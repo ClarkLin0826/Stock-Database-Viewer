@@ -43,23 +43,81 @@ export default function App() {
     setLoading(true);
     setNeedsGasUpdate(false);
     try {
-      const response = await fetch(`${apiUrl}?action=getAllData`);
+      const response = await fetch(`${apiUrl}?action=getSheets`);
       
       if (!response.ok) throw new Error(`API 請求失敗: ${response.statusText}`);
       const jsonData = await response.json();
       
-      if (jsonData && jsonData.allData) {
+      if (jsonData && jsonData.sheets) {
+        const sheetNames = jsonData.sheets;
+        setSheets(sheetNames);
+        
+        const targetSheet = selectedSheet && sheetNames.includes(selectedSheet) ? selectedSheet : (sheetNames[0] || "");
+        if (!selectedSheet && targetSheet) {
+          setSelectedSheet(targetSheet);
+        }
+
+        if (sheetNames.length > 0) {
+           const initialSheets = [targetSheet];
+           for (const name of sheetNames) {
+              if (name !== targetSheet && initialSheets.length < 3) {
+                 initialSheets.push(name);
+              }
+           }
+           const remainingSheets = sheetNames.filter(name => !initialSheets.includes(name));
+
+           const initialRes = await Promise.all(
+              initialSheets.map(async (name) => {
+                 try {
+                   const res = await fetch(`${apiUrl}?sheetName=${encodeURIComponent(name)}`);
+                   return { name, data: await res.json() };
+                 } catch (e) {
+                   return { name, data: { error: 'Fetch failed' } };
+                 }
+              })
+           );
+
+           const initialDataMap: Record<string, any[]> = {};
+           for (const result of initialRes) {
+              if (Array.isArray(result.data)) {
+                 initialDataMap[result.name] = result.data;
+              } else if (result.data && result.data.allData) {
+                 // in case the backend somehow returned allData
+                 Object.assign(initialDataMap, result.data.allData);
+              } else {
+                 initialDataMap[result.name] = [];
+              }
+           }
+           setAllSheetsData(prev => ({ ...prev, ...initialDataMap }));
+           
+           // Loading is done for the initial view!
+           setLoadingSheets(false);
+           setLoading(false);
+
+           // Fetch remaining in the background sequentially or concurrently
+           remainingSheets.forEach((name) => {
+              fetch(`${apiUrl}?sheetName=${encodeURIComponent(name)}`)
+                 .then(res => res.json())
+                 .then(data => {
+                    if (Array.isArray(data)) {
+                       setAllSheetsData(prev => ({ ...prev, [name]: data }));
+                    }
+                 })
+                 .catch(err => console.error(`Background fetch error for ${name}`, err));
+           });
+        } else {
+           setLoadingSheets(false);
+           setLoading(false);
+        }
+      } else if (jsonData && jsonData.allData) {
+        // Fallback if they still used action=getAllData directly
         setAllSheetsData(jsonData.allData);
         setSheets(jsonData.sheets || []);
         if (jsonData.sheets?.length > 0 && !selectedSheet) {
           setSelectedSheet(jsonData.sheets[0]);
         }
-      } else if (jsonData && jsonData.sheets) {
-        setNeedsGasUpdate(true);
-        setSheets(jsonData.sheets);
-        if (jsonData.sheets.length > 0 && !selectedSheet) {
-          setSelectedSheet(jsonData.sheets[0]);
-        }
+        setLoadingSheets(false);
+        setLoading(false);
       } else if (Array.isArray(jsonData)) {
         // If it returned an array directly, the GAS script doesn't support getSheets yet
         setNeedsGasUpdate(true);
@@ -72,13 +130,16 @@ export default function App() {
         if (jsonData.length > 0) {
             setColumns(Object.keys(jsonData[0]));
         }
+        setLoadingSheets(false);
+        setLoading(false);
       } else {
         setError('API 回傳格式不正確');
+        setLoadingSheets(false);
+        setLoading(false);
       }
     } catch (err: any) {
       console.error("Fetch sheets error:", err);
       setError(`無法讀取工作表清單: ${err.message}`);
-    } finally {
       setLoadingSheets(false);
       setLoading(false);
     }
@@ -260,16 +321,16 @@ export default function App() {
 
   if (loadingSheets && Object.keys(allSheetsData).length === 0 && !error) {
     return (
-      <div className="flex h-screen bg-gray-50 flex-col items-center justify-center font-sans">
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center max-w-sm w-full mx-4 animate-in fade-in zoom-in-95 duration-500">
-          <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 shadow-inner">
-            <Table2 className="w-8 h-8 text-indigo-600" />
+      <div className="flex h-[100dvh] w-full bg-indigo-50/30 flex-col items-center justify-center font-sans animate-in fade-in duration-500">
+        <div className="flex flex-col items-center animate-pulse">
+          <div className="w-20 h-20 bg-indigo-100 rounded-3xl flex items-center justify-center mb-8 shadow-sm">
+            <Table2 className="w-10 h-10 text-indigo-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">股票資料庫</h2>
-          <p className="text-gray-500 text-sm mb-6 text-center">正在從 Google 試算表同步資料，請稍候...</p>
-          <div className="flex gap-2 items-center text-indigo-600 font-medium">
+          <h2 className="text-3xl font-bold text-gray-900 mb-3 tracking-tight">股票資料庫</h2>
+          <p className="text-gray-500 text-base mb-8 text-center max-w-sm">正在從 Google 試算表同步資料，請稍候...</p>
+          <div className="flex gap-2.5 items-center text-indigo-600 font-medium bg-indigo-50 px-5 py-2.5 rounded-full shadow-sm">
              <RefreshCcw className="w-5 h-5 animate-spin" />
-             載入中...
+             <span className="text-sm">載入中...</span>
           </div>
         </div>
       </div>
