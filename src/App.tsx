@@ -377,8 +377,12 @@ export default function App() {
 
   const dateColumns = ['發言日期', '發布日期', '日期', '年月', '資料年月', '公告月份', '月份', '發生日期', '發言時間'];
 
+  const hasDateSheet = selectedSheet === 'MULTI_FILTER' 
+    ? selectedIntersectSheets.some(s => ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(s))
+    : ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(selectedSheet || '');
+
   const availableMonths = useMemo(() => {
-    if (!['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(selectedSheet || '')) return [];
+    if (!hasDateSheet) return [];
     
     let targetCol = columns.find(c => dateColumns.includes(c)) || columns.find(c => c.includes('日期') || c.includes('月'));
     if (!targetCol) return [];
@@ -400,12 +404,12 @@ export default function App() {
        }
     });
     return Array.from(months).sort((a, b) => b.localeCompare(a));
-  }, [data, columns, selectedSheet]);
+  }, [data, columns, hasDateSheet]);
 
   const filteredData = useMemo(() => {
     let result = data;
     
-    if (selectedMonth !== "ALL" && selectedSheet && ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(selectedSheet)) {
+    if (selectedMonth !== "ALL" && hasDateSheet) {
        let targetCol = columns.find(c => dateColumns.includes(c)) || columns.find(c => c.includes('日期') || c.includes('月'));
        if (targetCol) {
           result = result.filter(row => {
@@ -423,7 +427,7 @@ export default function App() {
          return val !== null && val !== undefined && String(val).toLowerCase().includes(lowerSearch);
       })
     );
-  }, [data, columns, searchTerm, selectedMonth, selectedSheet]);
+  }, [data, columns, searchTerm, selectedMonth, hasDateSheet]);
 
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
