@@ -106,6 +106,24 @@ export default function App() {
   // Month filter state
   const [selectedMonth, setSelectedMonth] = useState<string>("ALL");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
+  const [selectedIndustry, setSelectedIndustry] = useState<string>("ALL");
+  const [selectedSubIndustry, setSelectedSubIndustry] = useState<string>("ALL");
+  const [selectedSector, setSelectedSector] = useState<string>("ALL");
+
+  useEffect(() => {
+     setSelectedIndustry("ALL");
+     setSelectedSubIndustry("ALL");
+     setSelectedSector("ALL");
+  }, [selectedSheet, selectedIntersectSheets]);
+
+  useEffect(() => {
+     setSelectedSubIndustry("ALL");
+     setSelectedSector("ALL");
+  }, [selectedIndustry]);
+
+  useEffect(() => {
+     setSelectedSector("ALL");
+  }, [selectedSubIndustry]);
 
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -200,6 +218,32 @@ export default function App() {
   // You can still manually test another URL in code, but UI hides it.
   const apiUrl = DEFAULT_API_URL;
 
+  const normalizeDataArray = (arr: any[]) => {
+     if (!Array.isArray(arr)) return arr;
+     const NORMALIZE_MAP: Record<string, string> = {
+       "光電": "光電業",
+       "半導體": "半導體業",
+       "鋼鐵": "鋼鐵工業",
+       "電子零組件": "電子零組件業",
+       "電腦及周邊設備": "電腦及周邊設備業",
+     };
+     return arr.map(row => {
+        const newRow = { ...row };
+        for (const key in newRow) {
+            if (key === '主產業' || key.includes('主產業')) {
+                const val = newRow[key];
+                if (typeof val === 'string') {
+                    const trimmed = val.trim();
+                    if (NORMALIZE_MAP[trimmed]) {
+                        newRow[key] = NORMALIZE_MAP[trimmed];
+                    }
+                }
+            }
+        }
+        return newRow;
+     });
+  };
+
   const fetchSheets = async () => {
     setLoadingSheets(true);
     setLoading(true);
@@ -245,10 +289,14 @@ export default function App() {
            const initialDataMap: Record<string, any[]> = {};
            for (const result of initialRes) {
               if (Array.isArray(result.data)) {
-                 initialDataMap[result.name] = result.data;
+                 initialDataMap[result.name] = normalizeDataArray(result.data);
               } else if (result.data && result.data.allData) {
                  // in case the backend somehow returned allData
-                 Object.assign(initialDataMap, result.data.allData);
+                 const normData: Record<string, any[]> = {};
+                 Object.keys(result.data.allData).forEach(k => {
+                    normData[k] = normalizeDataArray(result.data.allData[k]);
+                 });
+                 Object.assign(initialDataMap, normData);
               } else {
                  initialDataMap[result.name] = [];
               }
@@ -266,7 +314,7 @@ export default function App() {
                  .then(res => res.json())
                  .then(data => {
                     if (Array.isArray(data)) {
-                       setAllSheetsData(prev => ({ ...prev, [name]: data }));
+                       setAllSheetsData(prev => ({ ...prev, [name]: normalizeDataArray(data) }));
                     }
                  })
                  .catch(err => console.error(`Background fetch error for ${name}`, err));
@@ -277,7 +325,11 @@ export default function App() {
         }
       } else if (jsonData && jsonData.allData) {
         // Fallback if they still used action=getAllData directly
-        setAllSheetsData(jsonData.allData);
+        const normalizedAllData: Record<string, any[]> = {};
+        Object.keys(jsonData.allData).forEach(k => {
+            normalizedAllData[k] = normalizeDataArray(jsonData.allData[k]);
+        });
+        setAllSheetsData(normalizedAllData);
         setSheets(jsonData.sheets || []);
         if (jsonData.sheets?.length > 0 && !selectedSheet) {
           setSelectedSheet(jsonData.sheets[0]);
@@ -292,10 +344,11 @@ export default function App() {
         if (!selectedSheet) setSelectedSheet("預設工作表");
         
         // Load default data right away to be nice
-        setAllSheetsData({ "預設工作表": jsonData });
-        setData(jsonData);
-        if (jsonData.length > 0) {
-            setColumns(Object.keys(jsonData[0]));
+        const normalizedData = normalizeDataArray(jsonData);
+        setAllSheetsData({ "預設工作表": normalizedData });
+        setData(normalizedData);
+        if (normalizedData.length > 0) {
+            setColumns(Object.keys(normalizedData[0]));
         }
         setLoadingSheets(false);
         setLoading(false);
@@ -346,11 +399,15 @@ export default function App() {
       
       let sheetData: any[] = [];
       if (jsonData && jsonData.allData) {
-         setAllSheetsData(jsonData.allData);
+         const normalizedAllData: Record<string, any[]> = {};
+         Object.keys(jsonData.allData).forEach(k => {
+             normalizedAllData[k] = normalizeDataArray(jsonData.allData[k]);
+         });
+         setAllSheetsData(normalizedAllData);
          if (jsonData.sheets) setSheets(jsonData.sheets);
-         sheetData = jsonData.allData[sheetName] || [];
+         sheetData = normalizedAllData[sheetName] || [];
       } else if (Array.isArray(jsonData)) {
-         sheetData = jsonData;
+         sheetData = normalizeDataArray(jsonData);
       }
       
       if (sheetData.length > 0) {
@@ -477,7 +534,7 @@ export default function App() {
                  .then(res => res.json())
                  .then(fetchedData => {
                     if (Array.isArray(fetchedData)) {
-                       setAllSheetsData(all => ({ ...all, [sheet]: fetchedData }));
+                       setAllSheetsData(all => ({ ...all, [sheet]: normalizeDataArray(fetchedData) }));
                     }
                  })
                  .catch(err => console.error(`Fetch error for ${sheet}`, err))
@@ -621,6 +678,51 @@ export default function App() {
     return Array.from(months).sort((a, b) => b.localeCompare(a));
   }, [selectedSheet, selectedIntersectSheets, allSheetsData, hasDateSheet]);
 
+  const availableIndustries = useMemo(() => {
+     const col = columns.find(c => c === '主產業' || c.includes('主產業'));
+     if (!col) return [];
+     const set = new Set<string>();
+     data.forEach(row => {
+        const val = String(row[col] || '').trim();
+        if (val && val !== '-') set.add(val);
+     });
+     return Array.from(set).sort();
+  }, [data, columns]);
+  
+  const availableSubIndustries = useMemo(() => {
+     const col = columns.find(c => c === '細產業' || c.includes('細產業'));
+     const indCol = columns.find(c => c === '主產業' || c.includes('主產業'));
+     if (!col) return [];
+     const set = new Set<string>();
+     data.forEach(row => {
+        if (selectedIndustry !== "ALL" && indCol) {
+           if (String(row[indCol] || '').trim() !== selectedIndustry) return;
+        }
+        const val = String(row[col] || '').trim();
+        if (val && val !== '-') set.add(val);
+     });
+     return Array.from(set).sort();
+  }, [data, columns, selectedIndustry]);
+
+  const availableSectors = useMemo(() => {
+     const col = columns.find(c => c === '子領域' || c.includes('子領域'));
+     const indCol = columns.find(c => c === '主產業' || c.includes('主產業'));
+     const subIndCol = columns.find(c => c === '細產業' || c.includes('細產業'));
+     if (!col) return [];
+     const set = new Set<string>();
+     data.forEach(row => {
+        if (selectedIndustry !== "ALL" && indCol) {
+           if (String(row[indCol] || '').trim() !== selectedIndustry) return;
+        }
+        if (selectedSubIndustry !== "ALL" && subIndCol) {
+           if (String(row[subIndCol] || '').trim() !== selectedSubIndustry) return;
+        }
+        const val = String(row[col] || '').trim();
+        if (val && val !== '-') set.add(val);
+     });
+     return Array.from(set).sort();
+  }, [data, columns, selectedIndustry, selectedSubIndustry]);
+
   const hasStatusSheet = selectedSheet === 'MULTI_FILTER'
     ? selectedIntersectSheets.some(s => s === '月KD')
     : selectedSheet === '月KD';
@@ -717,6 +819,21 @@ export default function App() {
        }
     }
 
+    let indCol = columns.find(c => c === '主產業' || c.includes('主產業'));
+    if (indCol && selectedIndustry !== "ALL") {
+       result = result.filter(row => String(row[indCol] || '').trim() === selectedIndustry);
+    }
+
+    let subIndCol = columns.find(c => c === '細產業' || c.includes('細產業'));
+    if (subIndCol && selectedSubIndustry !== "ALL") {
+       result = result.filter(row => String(row[subIndCol] || '').trim() === selectedSubIndustry);
+    }
+
+    let sectorCol = columns.find(c => c === '子領域' || c.includes('子領域'));
+    if (sectorCol && selectedSector !== "ALL") {
+       result = result.filter(row => String(row[sectorCol] || '').trim() === selectedSector);
+    }
+
     if (!searchTerm) return result;
     const lowerSearch = searchTerm.toLowerCase();
     return result.filter(row => 
@@ -725,7 +842,7 @@ export default function App() {
          return val !== null && val !== undefined && String(val).toLowerCase().includes(lowerSearch);
       })
     );
-  }, [data, columns, searchTerm, selectedMonth, selectedStatus, hasDateSheet, hasStatusSheet, selectedSheet]);
+  }, [data, columns, searchTerm, selectedMonth, selectedStatus, selectedIndustry, selectedSubIndustry, selectedSector, hasDateSheet, hasStatusSheet, selectedSheet]);
 
   const [sortConfigs, setSortConfigs] = useState<{ key: string; direction: 'asc' | 'desc' }[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -735,7 +852,7 @@ export default function App() {
 
   useEffect(() => {
      setCurrentPage(1);
-  }, [selectedSheet, selectedIntersectSheets, selectedMonth, selectedStatus, searchTerm, sortConfigs]);
+  }, [selectedSheet, selectedIntersectSheets, selectedMonth, selectedStatus, selectedIndustry, selectedSubIndustry, selectedSector, searchTerm, sortConfigs]);
 
   useEffect(() => {
      setHiddenColumns(new Set());
@@ -1153,12 +1270,12 @@ export default function App() {
                         <p className="text-3xl font-bold mt-1 text-gray-900">{columns.length}</p>
                     </div>
                     
-                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm col-span-1 md:col-span-2 flex items-center gap-3">
+                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm col-span-1 md:col-span-2 flex flex-wrap items-center gap-3">
                         {availableMonths.length > 0 && (
                             <select
                                 value={selectedMonth}
                                 onChange={(e) => setSelectedMonth(e.target.value)}
-                                className="block w-32 md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
                             >
                                 <option value="ALL">全部月份</option>
                                 {availableMonths.map(m => (
@@ -1170,7 +1287,7 @@ export default function App() {
                             <select
                                 value={selectedStatus}
                                 onChange={(e) => setSelectedStatus(e.target.value)}
-                                className="block w-32 md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
                             >
                                 <option value="ALL">全部狀態</option>
                                 {availableStatuses.map(s => (
@@ -1178,7 +1295,43 @@ export default function App() {
                                 ))}
                             </select>
                         )}
-                        <div className="flex-1 relative">
+                        {availableIndustries.length > 0 && (
+                            <select
+                                value={selectedIndustry}
+                                onChange={(e) => setSelectedIndustry(e.target.value)}
+                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                            >
+                                <option value="ALL">全部主產業</option>
+                                {availableIndustries.map(i => (
+                                    <option key={i} value={i}>{i}</option>
+                                ))}
+                            </select>
+                        )}
+                        {selectedIndustry !== "ALL" && availableSubIndustries.length > 0 && (
+                            <select
+                                value={selectedSubIndustry}
+                                onChange={(e) => setSelectedSubIndustry(e.target.value)}
+                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                            >
+                                <option value="ALL">全部細產業</option>
+                                {availableSubIndustries.map(i => (
+                                    <option key={i} value={i}>{i}</option>
+                                ))}
+                            </select>
+                        )}
+                        {selectedSubIndustry !== "ALL" && availableSectors.length > 0 && (
+                            <select
+                                value={selectedSector}
+                                onChange={(e) => setSelectedSector(e.target.value)}
+                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                            >
+                                <option value="ALL">全部子領域</option>
+                                {availableSectors.map(i => (
+                                    <option key={i} value={i}>{i}</option>
+                                ))}
+                            </select>
+                        )}
+                        <div className="flex-1 shrink-0 w-full md:w-auto relative">
                             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                                 <Search className="h-5 w-5 text-gray-400" />
                             </div>
