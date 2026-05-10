@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Papa from 'papaparse';
 import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown, Heart, LogOut, User } from 'lucide-react';
 import { db, auth } from './lib/firebase';
@@ -50,6 +50,16 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
+
+const getSymbol = (row: any): string => {
+  if (!row) return '';
+  return String(row['代碼'] || row['代號'] || row['現股代號'] || row['證券代號'] || row['公司代號'] || '').trim();
+};
+
+const getName = (row: any): string => {
+  if (!row) return '';
+  return String(row['名稱'] || row['公司名稱'] || row['股票名稱'] || row['證券名稱'] || '').trim();
+};
 
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyoKmgydF-B4Um-F07SmCvHOiHuufvRcLsnOGTS8QWKtP3869vYOkRYz-EOkcuPW1r1/exec";
 
@@ -128,8 +138,8 @@ export default function App() {
       handleLogin();
       return;
     }
-    const symbol = String(row['代號'] || row['公司代號']).trim();
-    const name = row['名稱'] || row['公司名稱'];
+    const symbol = getSymbol(row);
+    const name = getName(row);
     if (!symbol) return;
     
     if (favorites.has(symbol)) {
@@ -184,7 +194,10 @@ export default function App() {
       const jsonData = await response.json();
       
       if (jsonData && jsonData.sheets) {
-        const sheetNames = jsonData.sheets;
+        // 先過濾掉不要顯示的工作表
+        const originalSheetNames = jsonData.sheets as string[];
+        const sheetNames = originalSheetNames.filter(name => name !== '上市櫃公司清單_含產業');
+        
         setSheets(sheetNames);
         
         const targetSheet = selectedSheet && sheetNames.includes(selectedSheet) ? selectedSheet : (sheetNames[0] || "");
@@ -359,7 +372,7 @@ export default function App() {
        // We can simply show them if we can't find extra data, but let's try to map extra data if available
        const uniqueSymbols = Array.from(favorites);
        uniqueSymbols.forEach(symbol => {
-          let row = allRows.find(r => (r['代號'] === symbol || r['公司代號'] === symbol));
+          let row = allRows.find(r => getSymbol(r) === symbol);
           if (!row) {
              row = { '代號': symbol, '名稱': '' };
           }
@@ -407,11 +420,11 @@ export default function App() {
        
        const otherSheetsSymbolSets = otherSheets.map(sheet => {
           const sData = getFilteredSheetData(sheet);
-          return new Set(sData.map(row => row['代號'] || row['公司代號']).filter(Boolean));
+          return new Set(sData.map(row => getSymbol(row)).filter(Boolean));
        });
 
        const intersected = baseData.filter(row => {
-          const id = row['代號'] || row['公司代號'];
+          const id = getSymbol(row);
           if (!id) return false;
           return otherSheetsSymbolSets.every(set => set.has(id));
        });
@@ -576,6 +589,36 @@ export default function App() {
     });
     return Array.from(months).sort((a, b) => b.localeCompare(a));
   }, [selectedSheet, selectedIntersectSheets, allSheetsData, hasDateSheet]);
+
+  const visibleSheets = useMemo(() => {
+    return sheets.filter(sheet => {
+      // 排除「上市櫃公司清單_含產業」
+      if (sheet === '上市櫃公司清單_含產業') return false;
+      // 如果已經載入且沒有資料則隱藏
+      if (allSheetsData[sheet] && allSheetsData[sheet].length === 0) return false;
+      return true;
+    });
+  }, [sheets, allSheetsData]);
+
+  // 如果選擇的工作表被隱藏了，自動切換到第一個可見的工作表
+  useEffect(() => {
+    if (selectedSheet && selectedSheet !== 'MULTI_FILTER' && selectedSheet !== 'FAVORITES') {
+      if (visibleSheets.length > 0 && !visibleSheets.includes(selectedSheet)) {
+        if (allSheetsData[selectedSheet] && allSheetsData[selectedSheet].length === 0) {
+           setSelectedSheet(visibleSheets[0]);
+        }
+      }
+    }
+    
+    // 如果有被隱藏的工作表在交集名單中，自動移除
+    if (selectedIntersectSheets.some(sheet => allSheetsData[sheet] && allSheetsData[sheet].length === 0)) {
+        setSelectedIntersectSheets(prev => prev.filter(sheet => !allSheetsData[sheet] || allSheetsData[sheet].length > 0));
+    }
+    // 也排除「上市櫃公司清單_含產業」
+    if (selectedIntersectSheets.includes('上市櫃公司清單_含產業')) {
+        setSelectedIntersectSheets(prev => prev.filter(sheet => sheet !== '上市櫃公司清單_含產業'));
+    }
+  }, [selectedSheet, visibleSheets, allSheetsData, selectedIntersectSheets]);
 
   const filteredData = useMemo(() => {
     let result = data;
@@ -744,7 +787,7 @@ export default function App() {
              <button
                onClick={() => {
                  if (selectedSheet === 'MULTI_FILTER') {
-                    setSelectedSheet(sheets.length > 0 ? sheets[0] : null);
+                    setSelectedSheet(visibleSheets.length > 0 ? visibleSheets[0] : null);
                  } else {
                     setSelectedSheet('MULTI_FILTER');
                     if (window.innerWidth < 768) setIsSidebarOpen(false);
@@ -793,7 +836,7 @@ export default function App() {
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-2">工作表清單</h3>
           
           <ul className="space-y-1">
-            {sheets.map(sheet => {
+            {visibleSheets.map(sheet => {
               const isIntersectSelected = selectedSheet === 'MULTI_FILTER' && selectedIntersectSheets.includes(sheet);
               return (
               <li key={sheet}>
@@ -889,7 +932,7 @@ export default function App() {
           </div>
         </header>
 
-        <div className="flex-1 flex flex-col p-4 sm:p-6 bg-gray-50 overflow-y-auto space-y-4 sm:space-y-6 custom-scrollbar">
+        <div className="flex-1 flex flex-col p-4 sm:p-6 bg-gray-50 overflow-y-auto md:overflow-hidden space-y-4 sm:space-y-6 custom-scrollbar">
             {needsGasUpdate && (
                <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm animate-in fade-in slide-in-from-top-4">
                   <div className="flex-1">
@@ -926,7 +969,7 @@ export default function App() {
                       選擇要交集的工作表
                     </h3>
                     <div className="flex flex-wrap gap-2">
-                      {sheets.map(sheet => {
+                      {visibleSheets.map(sheet => {
                           const isSelected = selectedIntersectSheets.includes(sheet);
                           return (
                             <button
@@ -1008,7 +1051,7 @@ export default function App() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-[300px]">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col shrink-0 min-h-[300px] max-h-[600px] md:max-h-none md:h-auto md:flex-1 md:min-h-0">
                     <div className="overflow-auto custom-scrollbar flex-1 relative">
                     <table className="w-full text-sm text-left">
                       <thead className="text-xs text-gray-600 uppercase bg-gray-50 border-b border-gray-200 sticky top-0 shadow-sm z-10">
@@ -1074,13 +1117,13 @@ export default function App() {
                                               <button 
                                                  onClick={(e) => toggleFavorite(e, row)}
                                                  className={`p-1 rounded-full transition-colors ${
-                                                    favorites.has(String(row['代號'] || row['公司代號']))
+                                                    favorites.has(getSymbol(row))
                                                       ? 'text-pink-500 hover:bg-pink-100'
                                                       : 'text-gray-300 hover:text-pink-400 hover:bg-pink-50'
                                                  }`}
                                                  title="加入自選"
                                               >
-                                                <Heart className="w-4 h-4" fill={favorites.has(String(row['代號'] || row['公司代號'])) ? "currentColor" : "none"} />
+                                                <Heart className="w-4 h-4" fill={favorites.has(getSymbol(row)) ? "currentColor" : "none"} />
                                               </button>
                                               <span className="truncate">{cellValue || '-'}</span>
                                            </div>
@@ -1132,12 +1175,12 @@ export default function App() {
                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white rounded-t-3xl md:rounded-t-2xl sticky top-0 z-10">
                   <div className="flex items-center gap-3 w-full pr-4 overflow-hidden">
                      <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2 truncate shrink">
-                        {selectedRowInfo['名稱'] || selectedRowInfo['公司名稱'] || selectedRowInfo['代號'] || selectedRowInfo['公司代號'] || selectedRowInfo[columns[0]] || '詳細資訊'}
+                        {getName(selectedRowInfo) || getSymbol(selectedRowInfo) || selectedRowInfo[columns[0]] || '詳細資訊'}
                      </h3>
-                     {(selectedRowInfo['代號'] || selectedRowInfo['公司代號']) && (
+                     {getSymbol(selectedRowInfo) && (
                         <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1 -mb-1">
                            <a 
-                              href={`https://tw.stock.yahoo.com/quote/${selectedRowInfo['代號'] || selectedRowInfo['公司代號']}/technical-analysis`}
+                              href={`https://tw.stock.yahoo.com/quote/${getSymbol(selectedRowInfo)}/technical-analysis`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-lg transition-colors shrink-0"
@@ -1149,7 +1192,7 @@ export default function App() {
                            </a>
                            {hasDateSheet && (
                               <a 
-                                 href={`https://mops.twse.com.tw/mops/#/web/t146sb05?companyId=${selectedRowInfo['代號'] || selectedRowInfo['公司代號']}`}
+                                 href={`https://mops.twse.com.tw/mops/#/web/t146sb05?companyId=${getSymbol(selectedRowInfo)}`}
                                  target="_blank"
                                  rel="noopener noreferrer"
                                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg transition-colors shrink-0"
