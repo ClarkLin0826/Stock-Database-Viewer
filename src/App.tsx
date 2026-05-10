@@ -111,10 +111,21 @@ export default function App() {
     return () => unsub();
   }, [currentUser]);
 
+  const handleLogin = () => {
+    signInWithPopup(auth, new GoogleAuthProvider()).catch(err => {
+        console.error(err);
+        if (err.code === 'auth/unauthorized-domain') {
+            setError(`無法登入：此網域 (${window.location.hostname}) 尚未加入 Firebase 的授權網域清單。請至 Firebase 控制台 > Authentication > Settings > Authorized domains 加入此網域。`);
+        } else {
+            setError(`登入失敗： ${err.message}`);
+        }
+    });
+  };
+
   const toggleFavorite = async (e: React.MouseEvent, row: any) => {
     e.stopPropagation();
     if (!currentUser) {
-      signInWithPopup(auth, new GoogleAuthProvider()).catch(console.error);
+      handleLogin();
       return;
     }
     const symbol = String(row['代號'] || row['公司代號']).trim();
@@ -858,7 +869,7 @@ export default function App() {
                       </div>
                    ) : (
                       <button
-                        onClick={() => signInWithPopup(auth, new GoogleAuthProvider()).catch(console.error)}
+                        onClick={handleLogin}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
                       >
                          <User className="w-4 h-4" />
@@ -878,7 +889,7 @@ export default function App() {
           </div>
         </header>
 
-        <div className="flex-1 flex flex-col p-4 sm:p-6 bg-gray-50 overflow-hidden space-y-4 sm:space-y-6">
+        <div className="flex-1 flex flex-col p-4 sm:p-6 bg-gray-50 overflow-y-auto space-y-4 sm:space-y-6 custom-scrollbar">
             {needsGasUpdate && (
                <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm animate-in fade-in slide-in-from-top-4">
                   <div className="flex-1">
@@ -909,7 +920,7 @@ export default function App() {
             ) : (
               <>
                 {selectedSheet === 'MULTI_FILTER' && (
-                  <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm animate-in fade-in">
+                  <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm animate-in fade-in shrink-0">
                     <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <Filter className="w-5 h-5 text-indigo-500" />
                       選擇要交集的工作表
@@ -937,8 +948,19 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                {selectedSheet && selectedSheet !== 'MULTI_FILTER' && SHEET_DESCRIPTIONS[selectedSheet] && (
-                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 shadow-sm flex items-start gap-3 animate-in fade-in">
+                {selectedSheet === 'FAVORITES' && (
+                  <div className="bg-pink-50 border border-pink-100 rounded-xl p-4 shadow-sm flex items-start gap-3 animate-in fade-in shrink-0">
+                    <div className="bg-pink-100 text-pink-600 rounded-full p-1 shrink-0 mt-0.5">
+                       <AlertCircle className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-semibold text-pink-900 mb-0.5">自選股名單說明</h4>
+                        <p className="text-pink-800 text-sm leading-relaxed">如果自選股掉出目前資料庫，它的財務數據、當前股價等欄位，可能會顯示為空白或無資料，直到這支股票重新回到資料庫。</p>
+                    </div>
+                  </div>
+                )}
+                {selectedSheet && selectedSheet !== 'MULTI_FILTER' && selectedSheet !== 'FAVORITES' && SHEET_DESCRIPTIONS[selectedSheet] && (
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 shadow-sm flex items-start gap-3 animate-in fade-in shrink-0">
                     <div className="bg-indigo-100 text-indigo-600 rounded-full p-1 shrink-0 mt-0.5">
                        <AlertCircle className="w-4 h-4" />
                     </div>
@@ -948,7 +970,7 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 shrink-0">
                     <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm col-span-1">
                         <h3 className="text-sm font-medium text-gray-500">總資料筆數</h3>
                         <p className="text-3xl font-bold mt-1 text-gray-900">{data.length}</p>
