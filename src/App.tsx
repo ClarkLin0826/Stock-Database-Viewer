@@ -101,6 +101,8 @@ export default function App() {
   const [showGasCode, setShowGasCode] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const [lastFetchTime, setLastFetchTime] = useState<Date | null>(null);
+
   // Month filter state
   const [selectedMonth, setSelectedMonth] = useState<string>("ALL");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
@@ -256,6 +258,7 @@ export default function App() {
            // Loading is done for the initial view!
            setLoadingSheets(false);
            setLoading(false);
+           setLastFetchTime(new Date());
 
            // Fetch remaining in the background sequentially or concurrently
            remainingSheets.forEach((name) => {
@@ -281,6 +284,7 @@ export default function App() {
         }
         setLoadingSheets(false);
         setLoading(false);
+        setLastFetchTime(new Date());
       } else if (Array.isArray(jsonData)) {
         // If it returned an array directly, the GAS script doesn't support getSheets yet
         setNeedsGasUpdate(true);
@@ -295,6 +299,7 @@ export default function App() {
         }
         setLoadingSheets(false);
         setLoading(false);
+        setLastFetchTime(new Date());
       } else {
         setError('API 回傳格式不正確');
         setLoadingSheets(false);
@@ -352,6 +357,7 @@ export default function App() {
         setData(sheetData);
         setColumns(Object.keys(sheetData[0] as object));
         setAllSheetsData(prev => ({ ...prev, [sheetName]: sheetData }));
+        setLastFetchTime(new Date());
       } else if (sheetData.length === 0 && Array.isArray(jsonData)) {
         setData([]);
         setColumns([]);
@@ -721,7 +727,7 @@ export default function App() {
     );
   }, [data, columns, searchTerm, selectedMonth, selectedStatus, hasDateSheet, hasStatusSheet, selectedSheet]);
 
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [sortConfigs, setSortConfigs] = useState<{ key: string; direction: 'asc' | 'desc' }[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const [showColumnSelector, setShowColumnSelector] = useState(false);
@@ -729,7 +735,7 @@ export default function App() {
 
   useEffect(() => {
      setCurrentPage(1);
-  }, [selectedSheet, selectedIntersectSheets, selectedMonth, selectedStatus, searchTerm, sortConfig]);
+  }, [selectedSheet, selectedIntersectSheets, selectedMonth, selectedStatus, searchTerm, sortConfigs]);
 
   useEffect(() => {
      setHiddenColumns(new Set());
@@ -752,99 +758,112 @@ export default function App() {
   }, [columns, hiddenColumns]);
 
   const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    } else if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
-      // Third click removes sorting, or we can just toggle back to asc. Let's toggle between asc and desc, or clear it.
-      // Usually users prefer toggling: asc -> desc -> null
-      setSortConfig(null);
-      return;
-    }
-    setSortConfig({ key, direction });
+     setSortConfigs(prev => {
+        const existingIdx = prev.findIndex(c => c.key === key);
+        if (existingIdx !== -1) {
+           const existing = prev[existingIdx];
+           const newConfigs = [...prev];
+           if (existing.direction === 'asc') {
+              newConfigs[existingIdx] = { key, direction: 'desc' };
+           } else {
+              newConfigs.splice(existingIdx, 1);
+           }
+           return newConfigs;
+        } else {
+           // Add to the end (limit to 3 levels deep)
+           const newConfigs = [...prev, { key, direction: 'asc' }];
+           if (newConfigs.length > 3) newConfigs.shift();
+           return newConfigs;
+        }
+     });
   };
 
   const sortedData = useMemo(() => {
     let sortableItems = [...filteredData];
-    if (sortConfig !== null) {
+    if (sortConfigs.length > 0) {
       sortableItems.sort((a, b) => {
-        let aValue = a[sortConfig.key];
-        let bValue = b[sortConfig.key];
-        
-        // Handle nulls/undefined
-        if (aValue === null || aValue === undefined || aValue === '') return sortConfig.direction === 'asc' ? 1 : -1;
-        if (bValue === null || bValue === undefined || bValue === '') return sortConfig.direction === 'asc' ? -1 : 1;
-        
-        // Custom sort orders
-        if (sortConfig.key.includes('本益比狀態')) {
-           const aStr = String(aValue);
-           const bStr = String(bValue);
-           const getPeOrder = (val: string) => {
-              if (val.includes('高估')) return 5;
-              if (val.includes('略高')) return 4;
-              if (val.includes('合理')) return 3;
-              if (val.includes('低估')) return 2;
-              if (val.includes('NA')) return 1;
-              return 0;
-           };
-           const aOrder = getPeOrder(aStr);
-           const bOrder = getPeOrder(bStr);
-           if (aOrder !== bOrder) {
-               return sortConfig.direction === 'asc' ? aOrder - bOrder : bOrder - aOrder;
+        for (const config of sortConfigs) {
+           let aValue = a[config.key];
+           let bValue = b[config.key];
+           
+           if (aValue === null || aValue === undefined || aValue === '') return config.direction === 'asc' ? 1 : -1;
+           if (bValue === null || bValue === undefined || bValue === '') return config.direction === 'asc' ? -1 : 1;
+           
+           if (config.key.includes('本益比狀態')) {
+              const aStr = String(aValue);
+              const bStr = String(bValue);
+              const getPeOrder = (val: string) => {
+                 if (val.includes('高估')) return 5;
+                 if (val.includes('略高')) return 4;
+                 if (val.includes('合理')) return 3;
+                 if (val.includes('低估')) return 2;
+                 if (val.includes('NA')) return 1;
+                 return 0;
+              };
+              const aOrder = getPeOrder(aStr);
+              const bOrder = getPeOrder(bStr);
+              if (aOrder !== bOrder) {
+                  return config.direction === 'asc' ? aOrder - bOrder : bOrder - aOrder;
+              }
+              continue;
            }
-        }
 
-        if (sortConfig.key.includes('乖離率狀態')) {
-           const aStr = String(aValue);
-           const bStr = String(bValue);
-           const getBiasOrder = (val: string) => {
-              if (val.includes('瘋狂')) return 5;
-              if (val.includes('過熱')) return 4;
-              if (val.includes('正常')) return 3;
-              if (val.includes('極度超賣')) return 1; // MUST PRECEED 超賣
-              if (val.includes('超賣')) return 2;
-              return 0;
-           };
-           const aOrder = getBiasOrder(aStr);
-           const bOrder = getBiasOrder(bStr);
-           if (aOrder !== bOrder) {
-               return sortConfig.direction === 'asc' ? aOrder - bOrder : bOrder - aOrder;
+           if (config.key.includes('乖離率狀態')) {
+              const aStr = String(aValue);
+              const bStr = String(bValue);
+              const getBiasOrder = (val: string) => {
+                 if (val.includes('瘋狂')) return 5;
+                 if (val.includes('過熱')) return 4;
+                 if (val.includes('正常')) return 3;
+                 if (val.includes('極度超賣')) return 1; // MUST PRECEED 超賣
+                 if (val.includes('超賣')) return 2;
+                 return 0;
+              };
+              const aOrder = getBiasOrder(aStr);
+              const bOrder = getBiasOrder(bStr);
+              if (aOrder !== bOrder) {
+                  return config.direction === 'asc' ? aOrder - bOrder : bOrder - aOrder;
+              }
+              continue;
            }
-        }
 
-        // Try parsing to number
-        const aNum = Number(aValue);
-        const bNum = Number(bValue);
-        const isNumeric = !isNaN(aNum) && !isNaN(bNum);
+           const aNum = Number(aValue);
+           const bNum = Number(bValue);
+           const isNumeric = !isNaN(aNum) && !isNaN(bNum);
 
-        if (isNumeric) {
-           return sortConfig.direction === 'asc' ? aNum - bNum : bNum - aNum;
-        }
-
-        // Try parsing as percentage if it contains %
-        if (typeof aValue === 'string' && typeof bValue === 'string' && aValue.includes('%') && bValue.includes('%')) {
-           const aPct = parseFloat(aValue.replace(/%/g, ''));
-           const bPct = parseFloat(bValue.replace(/%/g, ''));
-           if (!isNaN(aPct) && !isNaN(bPct)) {
-              return sortConfig.direction === 'asc' ? aPct - bPct : bPct - aPct;
+           if (isNumeric) {
+              if (aNum !== bNum) {
+                 return config.direction === 'asc' ? aNum - bNum : bNum - aNum;
+              }
+              continue;
            }
-        }
 
-        // Fallback to string comparison
-        aValue = String(aValue).toLowerCase();
-        bValue = String(bValue).toLowerCase();
-        
-        if (aValue < bValue) {
-          return sortConfig.direction === 'asc' ? -1 : 1;
-        }
-        if (aValue > bValue) {
-          return sortConfig.direction === 'asc' ? 1 : -1;
+           if (typeof aValue === 'string' && typeof bValue === 'string' && aValue.includes('%') && bValue.includes('%')) {
+              const aPct = parseFloat(aValue.replace(/%/g, ''));
+              const bPct = parseFloat(bValue.replace(/%/g, ''));
+              if (!isNaN(aPct) && !isNaN(bPct)) {
+                 if (aPct !== bPct) {
+                    return config.direction === 'asc' ? aPct - bPct : bPct - aPct;
+                 }
+                 continue;
+              }
+           }
+
+           aValue = String(aValue).toLowerCase();
+           bValue = String(bValue).toLowerCase();
+           
+           if (aValue < bValue) {
+             return config.direction === 'asc' ? -1 : 1;
+           }
+           if (aValue > bValue) {
+             return config.direction === 'asc' ? 1 : -1;
+           }
         }
         return 0;
       });
     }
     return sortableItems;
-  }, [filteredData, sortConfig]);
+  }, [filteredData, sortConfigs]);
 
   if (loadingSheets && Object.keys(allSheetsData).length === 0 && !error) {
     return (
@@ -994,6 +1013,11 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2 sm:gap-3">
+             {lastFetchTime && (
+                <div className="hidden sm:flex items-center text-xs text-gray-500 font-medium mr-2">
+                   最新更新：{lastFetchTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+                </div>
+             )}
              <div className="mr-2 sm:mr-4 flex items-center">
                  {!authLoading && (
                    currentUser ? (
@@ -1224,10 +1248,13 @@ export default function App() {
                             >
                                 <div className="flex items-center gap-1.5">
                                   {col}
-                                  {sortConfig?.key === col ? (
-                                     sortConfig.direction === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-600" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-600" />
+                                  {sortConfigs.find(c => c.key === col) ? (
+                                     sortConfigs.find(c => c.key === col)?.direction === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-600" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-600" />
                                   ) : (
                                      <ArrowUpDown className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  )}
+                                  {sortConfigs.length > 1 && sortConfigs.findIndex(c => c.key === col) !== -1 && (
+                                     <span className="text-[10px] leading-tight bg-indigo-100 text-indigo-700 px-1 rounded font-bold shadow-sm">{sortConfigs.findIndex(c => c.key === col) + 1}</span>
                                   )}
                                 </div>
                             </th>
