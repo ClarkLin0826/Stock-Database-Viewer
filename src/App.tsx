@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Papa from 'papaparse';
-import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown, Heart, LogOut, User, Columns, X } from 'lucide-react';
+import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown, Heart, LogOut, User, Columns, X, Download, Bookmark, BookmarkPlus, Trash2, BarChart3 } from 'lucide-react';
 import { db, auth } from './lib/firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User as FirebaseUser } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc, getDocs, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, LineChart as RechartsLineChart, Line } from 'recharts';
 
 enum OperationType {
   CREATE = 'create',
@@ -982,6 +983,80 @@ export default function App() {
     return sortableItems;
   }, [filteredData, sortConfigs]);
 
+  const [filterPresets, setFilterPresets] = useState<{ id: string, name: string, sheets: string[], month: string, status: string, industry: string, subIndustry: string, sector: string }[]>(() => {
+     try {
+        const saved = localStorage.getItem('filterPresets');
+        return saved ? JSON.parse(saved) : [];
+     } catch {
+        return [];
+     }
+  });
+
+  useEffect(() => {
+     localStorage.setItem('filterPresets', JSON.stringify(filterPresets));
+  }, [filterPresets]);
+
+  const [showPresetModal, setShowPresetModal] = useState(false);
+  const [presetNameInput, setPresetNameInput] = useState('新篩選組合');
+
+  const handleSavePresetClick = () => {
+      setPresetNameInput('新篩選組合');
+      setShowPresetModal(true);
+  };
+
+  const confirmSavePreset = () => {
+      if (!presetNameInput.trim()) return;
+      
+      const newPreset = {
+          id: Date.now().toString(),
+          name: presetNameInput.trim(),
+          sheets: selectedIntersectSheets,
+          month: selectedMonth,
+          status: selectedStatus,
+          industry: selectedIndustry,
+          subIndustry: selectedSubIndustry,
+          sector: selectedSector
+      };
+      setFilterPresets(prev => [...prev, newPreset]);
+      setShowPresetModal(false);
+  };
+
+  const applyPreset = (preset: typeof filterPresets[0]) => {
+      setSelectedIntersectSheets(preset.sheets);
+      setSelectedMonth(preset.month);
+      setSelectedStatus(preset.status);
+      setSelectedIndustry(preset.industry);
+      setSelectedSubIndustry(preset.subIndustry);
+      setSelectedSector(preset.sector);
+  };
+
+  const removePreset = (id: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setFilterPresets(prev => prev.filter(p => p.id !== id));
+  };
+
+  const exportToCSV = () => {
+     if (!sortedData || sortedData.length === 0) return;
+     const exportData = sortedData.map(row => {
+         const newRow: Record<string, any> = {};
+         visibleColumns.forEach(c => {
+             newRow[c] = row[c];
+         });
+         return newRow;
+     });
+     
+     const csv = Papa.unparse(exportData);
+     const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+     const link = document.createElement("a");
+     const url = URL.createObjectURL(blob);
+     link.setAttribute("href", url);
+     link.setAttribute("download", `${selectedSheet === 'MULTI_FILTER' ? '自訂篩選' : selectedSheet}_${new Date().toISOString().slice(0,10)}.csv`);
+     link.style.visibility = 'hidden';
+     document.body.appendChild(link);
+     link.click();
+     document.body.removeChild(link);
+  };
+
   if (loadingSheets && Object.keys(allSheetsData).length === 0 && !error) {
     return (
       <div className="flex h-[100dvh] w-full bg-indigo-50/30 flex-col items-center justify-center font-sans animate-in fade-in duration-500">
@@ -1168,14 +1243,22 @@ export default function App() {
                    )
                  )}
              </div>
-             <button
-               onClick={() => selectedSheet && selectedSheet !== 'MULTI_FILTER' ? loadData(selectedSheet, true) : fetchSheets()}
-               disabled={loading}
-               className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50"
-             >
-                <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">重新整理</span>
-             </button>
+               <button
+                 onClick={exportToCSV}
+                 disabled={loading || sortedData.length === 0}
+                 className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50"
+               >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">匯出 CSV</span>
+               </button>
+               <button
+                 onClick={() => selectedSheet && selectedSheet !== 'MULTI_FILTER' ? loadData(selectedSheet, true) : fetchSheets()}
+                 disabled={loading}
+                 className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50"
+               >
+                  <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">重新整理</span>
+               </button>
           </div>
         </header>
 
@@ -1211,10 +1294,48 @@ export default function App() {
               <>
                 {selectedSheet === 'MULTI_FILTER' && (
                   <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm animate-in fade-in shrink-0">
-                    <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <Filter className="w-5 h-5 text-indigo-500" />
-                      選擇要交集的工作表
-                    </h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-3">
+                        <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                          <Filter className="w-5 h-5 text-indigo-500" />
+                          選擇要交集的工作表
+                        </h3>
+                        <div className="flex items-center gap-2">
+                            {filterPresets.length > 0 && (
+                                <div className="flex items-center gap-1">
+                                    <select 
+                                        className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 outline-none focus:border-indigo-500"
+                                        onChange={(e) => {
+                                            if (e.target.value) {
+                                                const p = filterPresets.find(p => p.id === e.target.value);
+                                                if (p) applyPreset(p);
+                                                e.target.value = "";
+                                            }
+                                        }}
+                                    >
+                                        <option value="">載入儲存的篩選...</option>
+                                        {filterPresets.map(p => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                    <button 
+                                        onClick={() => { if(confirm('確定要清空所有儲存的篩選嗎？')) setFilterPresets([]); }}
+                                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                        title="清空自訂篩選"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+                            <button
+                                onClick={handleSavePresetClick}
+                                disabled={selectedIntersectSheets.length === 0}
+                                className="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                            >
+                                <BookmarkPlus className="w-4 h-4" />
+                                儲存目前篩選
+                            </button>
+                        </div>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {visibleSheets.map(sheet => {
                           const isSelected = selectedIntersectSheets.includes(sheet);
@@ -1575,6 +1696,65 @@ export default function App() {
                </div>
                
                <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50 custom-scrollbar">
+                  {(() => {
+                     let chartData = null;
+                     const rowCols = Object.keys(selectedRowInfo);
+                     const monthRegex = /^(\d{1,2})月/;
+                     const monthCols = rowCols.filter(c => monthRegex.test(c) && !c.includes('增率') && (!isNaN(Number(String(selectedRowInfo[c]).replace(/,/g, ''))) || selectedRowInfo[c] === '')).sort((a, b) => {
+                         const ma = parseInt(a.match(monthRegex)?.[1] || "0");
+                         const mb = parseInt(b.match(monthRegex)?.[1] || "0");
+                         return ma - mb;
+                     });
+                     
+                     if (monthCols.length >= 2) {
+                         chartData = {
+                            title: '月度數據趨勢',
+                            data: monthCols.map(c => ({ name: c.replace('營收', ''), value: Number(String(selectedRowInfo[c] || '0').replace(/,/g, '')) }))
+                         };
+                     } else {
+                         const qRegex = /Q[1-4]$|[1-4]Q$/i;
+                         const qCols = rowCols.filter(c => qRegex.test(c) && !isNaN(Number(String(selectedRowInfo[c] || '0').replace(/,/g, '')))).sort();
+                         if (qCols.length >= 2) {
+                             chartData = {
+                                title: '季度數據趨勢',
+                                data: qCols.map(c => ({ name: c, value: Number(String(selectedRowInfo[c] || '0').replace(/,/g, '')) }))
+                             };
+                         } else {
+                             const yearRegex = /^(20\d{2}|1\d{2})年?/;
+                             const yearCols = rowCols.filter(c => yearRegex.test(c) && !isNaN(Number(String(selectedRowInfo[c] || '0').replace(/,/g, '')))).sort();
+                             if (yearCols.length >= 2) {
+                                 chartData = {
+                                    title: '年度數據趨勢',
+                                    data: yearCols.map(c => ({ name: c, value: Number(String(selectedRowInfo[c] || '0').replace(/,/g, '')) }))
+                                 };
+                             }
+                         }
+                     }
+
+                     return chartData ? (
+                         <div className="mb-6 bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                            <h4 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                               <BarChart3 className="w-4 h-4 text-indigo-500" />
+                               {chartData.title}
+                            </h4>
+                            <div className="w-full h-[200px]">
+                               <ResponsiveContainer width="100%" height="100%">
+                                  <BarChart data={chartData.data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                     <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748b' }} tickLine={false} axisLine={false} />
+                                     <YAxis tick={{ fontSize: 12, fill: '#64748b' }} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 100000000 ? `${(v/100000000).toFixed(1)}億` : v >= 10000 ? `${(v/10000).toFixed(0)}萬` : v} />
+                                     <RechartsTooltip 
+                                        cursor={{ fill: '#f8fafc' }}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }}
+                                        formatter={(value: number) => [new Intl.NumberFormat('zh-TW').format(value), '數值']}
+                                     />
+                                     <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                  </BarChart>
+                               </ResponsiveContainer>
+                            </div>
+                         </div>
+                     ) : null;
+                  })()}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                      {columns.map((col, idx) => {
                         const cellValue = selectedRowInfo[col];
@@ -1605,6 +1785,51 @@ export default function App() {
                      className="w-full md:w-auto px-6 py-2.5 bg-gray-900 text-white font-medium rounded-xl hover:bg-gray-800 shadow-sm transition-colors active:scale-[0.98]"
                   >
                      關閉
+                  </button>
+               </div>
+            </div>
+         </div>
+      )}
+
+      {/* Save Preset Modal */}
+      {showPresetModal && (
+         <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-sm rounded-2xl shadow-xl border border-gray-200 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+               <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                     <BookmarkPlus className="w-5 h-5 text-indigo-600" />
+                     儲存篩選組合
+                  </h3>
+                  <button onClick={() => setShowPresetModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                     <X className="w-5 h-5" />
+                  </button>
+               </div>
+               <div className="p-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">名稱</label>
+                  <input
+                     type="text"
+                     value={presetNameInput}
+                     onChange={(e) => setPresetNameInput(e.target.value)}
+                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                     placeholder="例如: 勝率篩選 (基本+技術)"
+                     autoFocus
+                     onKeyDown={(e) => {
+                         if (e.key === 'Enter') confirmSavePreset();
+                     }}
+                  />
+               </div>
+               <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3 rounded-b-2xl">
+                  <button
+                     onClick={() => setShowPresetModal(false)}
+                     className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                     取消
+                  </button>
+                  <button
+                     onClick={confirmSavePreset}
+                     className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2"
+                  >
+                     儲存
                   </button>
                </div>
             </div>
