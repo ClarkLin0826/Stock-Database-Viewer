@@ -61,6 +61,20 @@ const getName = (row: any): string => {
   return String(row['名稱'] || row['公司名稱'] || row['股票名稱'] || row['證券名稱'] || '').trim();
 };
 
+const formatCellValue = (val: any): string => {
+  if (val === null || val === undefined || val === '') return '';
+  const strVal = String(val).trim();
+  const numVal = Number(strVal);
+  // Only format if it's a valid number with a decimal point and it doesn't end with '%'
+  if (!isNaN(numVal) && strVal.includes('.') && !strVal.includes('%')) {
+    // Math.round to 2 decimal places to remove floating point inaccuracies, 
+    // then to string to remove unnecessary trailing zeros. But user requested '最多到0.00這個位數'
+    // so we can use parseFloat and toFixed then parseFloat again to strip trailing zeroes.
+    return parseFloat(numVal.toFixed(2)).toString();
+  }
+  return strVal;
+};
+
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyoKmgydF-B4Um-F07SmCvHOiHuufvRcLsnOGTS8QWKtP3869vYOkRYz-EOkcuPW1r1/exec";
 
 const DATE_COLUMNS = ['發言日期', '發布日期', '日期', '年月', '資料年月', '公告月份', '月份', '發生日期', '發言時間'];
@@ -644,6 +658,12 @@ export default function App() {
   }, [data, columns, searchTerm, selectedMonth, hasDateSheet, selectedSheet]);
 
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 100;
+
+  useEffect(() => {
+     setCurrentPage(1);
+  }, [selectedSheet, selectedIntersectSheets, selectedMonth, searchTerm, sortConfig]);
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -1090,7 +1110,7 @@ export default function App() {
                               </td>
                            </tr>
                         ) : sortedData.length > 0 ? (
-                            sortedData.slice(0, 100).map((row, rowIdx) => (
+                            sortedData.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((row, rowIdx) => (
                             <tr 
                                 key={rowIdx} 
                                 onClick={() => setSelectedRowInfo(row)}
@@ -1098,6 +1118,7 @@ export default function App() {
                             >
                                 {columns.map((col, colIdx) => {
                                 const cellValue = row[col];
+                                const formattedValue = formatCellValue(cellValue);
                                 const isNumericStr = !isNaN(Number(cellValue)) && cellValue !== '' && cellValue !== null;
                                 const isNegative = isNumericStr && Number(cellValue) < 0;
                                 const isPositive = isNumericStr && Number(cellValue) > 0;
@@ -1110,7 +1131,7 @@ export default function App() {
                                             isPositive ? 'text-emerald-600' : 
                                             'text-gray-700'
                                         }`}
-                                        title={String(cellValue || '')}
+                                        title={String(formattedValue || '')}
                                     >
                                         {colIdx === 0 ? (
                                            <div className="flex items-center gap-2">
@@ -1125,10 +1146,10 @@ export default function App() {
                                               >
                                                 <Heart className="w-4 h-4" fill={favorites.has(getSymbol(row)) ? "currentColor" : "none"} />
                                               </button>
-                                              <span className="truncate">{cellValue || '-'}</span>
+                                              <span className="truncate">{formattedValue || '-'}</span>
                                            </div>
                                         ) : (
-                                           cellValue || '-'
+                                           formattedValue || '-'
                                         )}
                                     </td>
                                 )
@@ -1146,9 +1167,27 @@ export default function App() {
                       </tbody>
                     </table>
                   </div>
-                  {sortedData.length > 100 && (
-                     <div className="p-3 bg-gray-50 text-center text-xs text-gray-500 border-t border-gray-200">
-                         僅顯示前 100 筆 (共 {sortedData.length} 筆)
+                  {sortedData.length > 0 && (
+                     <div className="flex items-center justify-between p-4 bg-white border-t border-gray-200 shrink-0">
+                         <div className="text-sm text-gray-500">
+                             顯示 {(currentPage - 1) * pageSize + 1} 至 {Math.min(currentPage * pageSize, sortedData.length)} 筆，共 <span className="font-medium text-gray-900">{sortedData.length}</span> 筆
+                         </div>
+                         <div className="flex gap-2">
+                             <button 
+                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                 disabled={currentPage === 1}
+                                 className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                             >
+                                 上一頁
+                             </button>
+                             <button 
+                                 onClick={() => setCurrentPage(p => Math.min(Math.ceil(sortedData.length / pageSize), p + 1))}
+                                 disabled={currentPage === Math.ceil(sortedData.length / pageSize) || Math.ceil(sortedData.length / pageSize) === 0}
+                                 className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                             >
+                                 下一頁
+                             </button>
+                         </div>
                      </div>
                   )}
                 </div>
@@ -1218,6 +1257,7 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                      {columns.map((col, idx) => {
                         const cellValue = selectedRowInfo[col];
+                        const formattedValue = formatCellValue(cellValue);
                         const isNumericStr = !isNaN(Number(cellValue)) && cellValue !== '' && cellValue !== null;
                         const isNegative = isNumericStr && Number(cellValue) < 0;
                         const isPositive = isNumericStr && Number(cellValue) > 0;
@@ -1230,7 +1270,7 @@ export default function App() {
                                  isPositive ? 'text-emerald-600' : 
                                  'text-gray-900'
                               }`}>
-                                 {cellValue || '-'}
+                                 {formattedValue || '-'}
                               </span>
                            </div>
                         );
