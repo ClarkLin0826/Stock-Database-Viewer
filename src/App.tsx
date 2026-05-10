@@ -1671,19 +1671,17 @@ export default function App() {
                               <span>技術線圖</span>
                               <ExternalLink className="w-3.5 h-3.5 ml-0.5 opacity-70" />
                            </a>
-                           {hasDateSheet && (
-                              <a 
-                                 href={`https://mops.twse.com.tw/mops/#/web/t146sb05?companyId=${getSymbol(selectedRowInfo)}`}
-                                 target="_blank"
-                                 rel="noopener noreferrer"
-                                 className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg transition-colors shrink-0"
-                                 title="查看公開資訊觀測站公告"
-                              >
-                                 <FileText className="w-4 h-4" />
-                                 <span>觀測站公告</span>
-                                 <ExternalLink className="w-3.5 h-3.5 ml-0.5 opacity-70" />
-                              </a>
-                           )}
+                           <a 
+                              href={`https://mops.twse.com.tw/mops/#/web/t146sb05?companyId=${getSymbol(selectedRowInfo)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg transition-colors shrink-0"
+                              title="查看公開資訊觀測站公告"
+                           >
+                              <FileText className="w-4 h-4" />
+                              <span>觀測站公告</span>
+                              <ExternalLink className="w-3.5 h-3.5 ml-0.5 opacity-70" />
+                           </a>
                         </div>
                      )}
                   </div>
