@@ -103,6 +103,7 @@ export default function App() {
 
   // Month filter state
   const [selectedMonth, setSelectedMonth] = useState<string>("ALL");
+  const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
 
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -423,6 +424,16 @@ export default function App() {
                    });
                }
            }
+           if (selectedStatus !== "ALL" && sheetName === '月KD') {
+               const sheetCols = Object.keys(sData[0] || {});
+               const targetCol = sheetCols.find(c => c === '狀態' || c.includes('狀態'));
+               if (targetCol) {
+                   sData = sData.filter(row => {
+                      const val = String(row[targetCol!] || '').trim();
+                      return val === selectedStatus || val.includes(selectedStatus);
+                   });
+               }
+           }
            return sData;
        };
 
@@ -446,7 +457,7 @@ export default function App() {
        setData(intersected);
        setColumns(intersected.length > 0 ? Object.keys(intersected[0]) : []);
     }
-  }, [selectedSheet, selectedIntersectSheets, allSheetsData, selectedMonth]);
+  }, [selectedSheet, selectedIntersectSheets, allSheetsData, selectedMonth, selectedStatus]);
 
   const toggleIntersectSheet = (sheet: string) => {
     setSelectedIntersectSheets(prev => {
@@ -604,6 +615,31 @@ export default function App() {
     return Array.from(months).sort((a, b) => b.localeCompare(a));
   }, [selectedSheet, selectedIntersectSheets, allSheetsData, hasDateSheet]);
 
+  const hasStatusSheet = selectedSheet === 'MULTI_FILTER'
+    ? selectedIntersectSheets.some(s => s === '月KD')
+    : selectedSheet === '月KD';
+
+  const availableStatuses = useMemo(() => {
+     if (!hasStatusSheet) return [];
+     let statusSheetName = selectedSheet === 'MULTI_FILTER'
+       ? selectedIntersectSheets.find(s => s === '月KD')
+       : selectedSheet;
+     if (!statusSheetName) return [];
+     const sheetData = allSheetsData[statusSheetName] || [];
+     if (sheetData.length === 0) return [];
+     const sheetCols = Object.keys(sheetData[0] || {});
+     let targetCol = sheetCols.find(c => c === '狀態' || c.includes('狀態'));
+     if (!targetCol) return [];
+     const statuses = new Set<string>();
+     sheetData.forEach(row => {
+         const val = row[targetCol!];
+         if (val !== undefined && val !== null && val !== '') {
+             statuses.add(String(val).trim());
+         }
+     });
+     return Array.from(statuses).sort();
+  }, [selectedSheet, selectedIntersectSheets, allSheetsData, hasStatusSheet]);
+
   const visibleSheets = useMemo(() => {
     return sheets.filter(sheet => {
       // 排除「上市櫃公司清單_含產業」
@@ -647,6 +683,16 @@ export default function App() {
        }
     }
 
+    if (selectedSheet !== 'MULTI_FILTER' && selectedStatus !== "ALL" && hasStatusSheet) {
+       let targetCol = columns.find(c => c === '狀態' || c.includes('狀態'));
+       if (targetCol) {
+          result = result.filter(row => {
+             const val = String(row[targetCol!] || '').trim();
+             return val === selectedStatus || val.includes(selectedStatus);
+          });
+       }
+    }
+
     if (!searchTerm) return result;
     const lowerSearch = searchTerm.toLowerCase();
     return result.filter(row => 
@@ -655,7 +701,7 @@ export default function App() {
          return val !== null && val !== undefined && String(val).toLowerCase().includes(lowerSearch);
       })
     );
-  }, [data, columns, searchTerm, selectedMonth, hasDateSheet, selectedSheet]);
+  }, [data, columns, searchTerm, selectedMonth, selectedStatus, hasDateSheet, hasStatusSheet, selectedSheet]);
 
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -663,7 +709,7 @@ export default function App() {
 
   useEffect(() => {
      setCurrentPage(1);
-  }, [selectedSheet, selectedIntersectSheets, selectedMonth, searchTerm, sortConfig]);
+  }, [selectedSheet, selectedIntersectSheets, selectedMonth, selectedStatus, searchTerm, sortConfig]);
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -1053,6 +1099,18 @@ export default function App() {
                                 <option value="ALL">全部月份</option>
                                 {availableMonths.map(m => (
                                     <option key={m} value={m}>{m}</option>
+                                ))}
+                            </select>
+                        )}
+                        {availableStatuses.length > 0 && (
+                            <select
+                                value={selectedStatus}
+                                onChange={(e) => setSelectedStatus(e.target.value)}
+                                className="block w-32 md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                            >
+                                <option value="ALL">全部狀態</option>
+                                {availableStatuses.map(s => (
+                                    <option key={s} value={s}>{s}</option>
                                 ))}
                             </select>
                         )}
