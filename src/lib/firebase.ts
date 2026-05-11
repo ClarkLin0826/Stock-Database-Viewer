@@ -3,7 +3,13 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
+const config = {
+  ...firebaseConfig,
+  // @ts-ignore - Vite env variables
+  apiKey: (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_API_KEY : null) || firebaseConfig.apiKey
+};
+
+const app = initializeApp(config);
 
 // CRITICAL: The app will break without this line
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); 
