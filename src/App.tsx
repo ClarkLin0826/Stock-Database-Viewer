@@ -499,6 +499,16 @@ export default function App() {
                    });
                }
            }
+           if (selectedMotive !== "ALL" && sheetName === 'CB可轉債雷達') {
+               const sheetCols = Object.keys(sData[0] || {});
+               const targetCol = sheetCols.find(c => c === '主力誘因' || c.includes('主力誘因'));
+               if (targetCol) {
+                   sData = sData.filter(row => {
+                      const val = String(row[targetCol!] || '').trim();
+                      return val === selectedMotive || val.includes(selectedMotive);
+                   });
+               }
+           }
            return sData;
        };
 
@@ -507,22 +517,57 @@ export default function App() {
        const baseSheet = dateSheetName || selectedIntersectSheets[0];
        const baseData = getFilteredSheetData(baseSheet);
        const otherSheets = selectedIntersectSheets.filter(s => s !== baseSheet);
+       const otherSheetsData = otherSheets.map(sheet => getFilteredSheetData(sheet));
        
-       const otherSheetsSymbolSets = otherSheets.map(sheet => {
-          const sData = getFilteredSheetData(sheet);
-          return new Set(sData.map(row => getSymbol(row)).filter(Boolean));
+       const otherSheetsMaps = otherSheetsData.map(sData => {
+           const map = new Map<string, any>();
+           sData.forEach(row => {
+               const id = getSymbol(row);
+               if (id) map.set(id, row);
+           });
+           return map;
        });
 
        const intersected = baseData.filter(row => {
           const id = getSymbol(row);
           if (!id) return false;
-          return otherSheetsSymbolSets.every(set => set.has(id));
+          return otherSheetsMaps.every(map => map.has(id));
+       }).map(row => {
+          const id = getSymbol(row);
+          let mergedRow = { ...row };
+          otherSheetsMaps.forEach(map => {
+              const matchingRow = map.get(id!);
+              if (matchingRow) {
+                  mergedRow = { ...mergedRow, ...matchingRow };
+              }
+          });
+          return mergedRow;
        });
        
+       let mergedColumns: string[] = [];
+       if (intersected.length > 0) {
+           const colSet = new Set<string>();
+           const addCols = (rowObj: any) => {
+               if(rowObj) {
+                   Object.keys(rowObj).forEach(k => {
+                       if(!colSet.has(k)) {
+                           colSet.add(k);
+                           mergedColumns.push(k);
+                       }
+                   });
+               }
+           };
+
+           addCols(baseData.length > 0 ? baseData[0] : null);
+           otherSheetsData.forEach(sData => {
+               addCols(sData.length > 0 ? sData[0] : null);
+           });
+       }
+
        setData(intersected);
-       setColumns(intersected.length > 0 ? Object.keys(intersected[0]) : []);
+       setColumns(mergedColumns);
     }
-  }, [selectedSheet, selectedIntersectSheets, allSheetsData, selectedMonth, selectedStatus]);
+  }, [selectedSheet, selectedIntersectSheets, allSheetsData, selectedMonth, selectedStatus, selectedMotive]);
 
   const toggleIntersectSheet = (sheet: string) => {
     setSelectedIntersectSheets(prev => {
