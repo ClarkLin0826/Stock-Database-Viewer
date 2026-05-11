@@ -213,7 +213,7 @@ export default function App() {
     '上市_值得注意': '股價六天新高，營收六個月新高',
     '上櫃_值得注意': '股價六天新高，營收六個月新高',
     '投信連買篩選': '投信至少連續買超三天，股本5~50億的股票',
-    '主動型ETF每日差異': '全體曝險排行Top40'
+    '主動型ETF每日差異': '全體曝險排行Top50'
   };
   const [needsGasUpdate, setNeedsGasUpdate] = useState(false);
 
@@ -835,6 +835,7 @@ export default function App() {
           minWidth: `${stickyColWidths[idx]}px`,
           maxWidth: `${stickyColWidths[idx]}px`,
           width: `${stickyColWidths[idx]}px`,
+          boxSizing: 'border-box' as const,
       };
    };
    
@@ -1606,7 +1607,7 @@ export default function App() {
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col shrink-0 min-h-[300px] max-h-[600px] md:max-h-none md:h-auto md:flex-1 md:min-h-0">
                     <div className="overflow-auto custom-scrollbar flex-1 relative">
-                    <table className="w-full text-sm text-left border-separate border-spacing-0">
+                    <table className="w-full min-w-max text-sm text-left border-separate border-spacing-0">
                       <thead className="text-xs text-gray-600 uppercase bg-gray-50 border-b border-gray-200">
                         <tr>
                           {visibleColumns.map((col, idx) => (
