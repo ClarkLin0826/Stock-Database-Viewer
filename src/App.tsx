@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Papa from 'papaparse';
-import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown, Heart, LogOut, User, Columns, X, Download, Bookmark, BookmarkPlus, Trash2, BarChart3, PieChart, Building } from 'lucide-react';
+import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown, Heart, LogOut, User, Columns, X, Download, Bookmark, BookmarkPlus, Trash2, BarChart3, PieChart, Building, Sun, Moon } from 'lucide-react';
 import { db, auth } from './lib/firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User as FirebaseUser } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc, getDocs, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -87,6 +87,24 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Dark Mode State
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
+
   // Sidebar & Sheets State
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
   const [sheets, setSheets] = useState<string[]>([]);
@@ -1146,12 +1164,12 @@ export default function App() {
     return (
       <div className="flex h-[100dvh] w-full bg-indigo-50/30 flex-col items-center justify-center font-sans animate-in fade-in duration-500">
         <div className="flex flex-col items-center animate-pulse">
-          <div className="w-20 h-20 bg-indigo-100 rounded-3xl flex items-center justify-center mb-8 shadow-sm">
-            <Table2 className="w-10 h-10 text-indigo-600" />
+          <div className="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/60 rounded-3xl flex items-center justify-center mb-8 shadow-sm">
+            <Table2 className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-3 tracking-tight">股票資料庫</h2>
-          <p className="text-gray-500 text-base mb-8 text-center max-w-sm">正在從 Google 試算表同步資料，請稍候...</p>
-          <div className="flex gap-2.5 items-center text-indigo-600 font-medium bg-indigo-50 px-5 py-2.5 rounded-full shadow-sm">
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-50 mb-3 tracking-tight">股票資料庫</h2>
+          <p className="text-gray-500 dark:text-gray-400 text-base mb-8 text-center max-w-sm">正在從 Google 試算表同步資料，請稍候...</p>
+          <div className="flex gap-2.5 items-center text-indigo-600 dark:text-indigo-400 font-medium bg-indigo-50 dark:bg-indigo-900/40 px-5 py-2.5 rounded-full shadow-sm">
              <RefreshCcw className="w-5 h-5 animate-spin" />
              <span className="text-sm">載入中...</span>
           </div>
@@ -1161,24 +1179,24 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden text-gray-900 font-sans">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden text-gray-900 dark:text-gray-50 font-sans">
       
       {/* Mobile Sidebar Backdrop */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-gray-900/50 z-40 md:hidden transition-opacity" 
+          className="fixed inset-0 bg-gray-900/50 dark:bg-black/50 z-40 md:hidden transition-opacity" 
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside 
-        className={`fixed md:relative inset-y-0 left-0 z-50 shrink-0 bg-white border-r border-gray-200 transition-all duration-300 flex flex-col overflow-hidden shadow-sm ${
+        className={`fixed md:relative inset-y-0 left-0 z-50 shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col overflow-hidden shadow-sm ${
           isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0 md:w-0 w-64'
         }`}
       >
-        <div className="h-16 flex items-center px-4 border-b border-gray-200 shrink-0">
-          <div className="flex items-center gap-2 text-indigo-600">
+        <div className="h-16 flex items-center px-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
+          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
              <Table2 className="w-6 h-6" />
              <span className="font-bold text-lg whitespace-nowrap">股票資料庫</span>
           </div>
@@ -1198,11 +1216,11 @@ export default function App() {
                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
                  selectedSheet === 'MULTI_FILTER'
                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-200 font-medium"
-                   : "text-gray-600 hover:bg-indigo-50 hover:text-indigo-600"
+                   : "text-gray-600 dark:text-gray-300 hover:bg-indigo-50 hover:text-indigo-600"
                }`}
              >
                <div className="flex items-center gap-2">
-                 <div className={`p-1 rounded-md ${selectedSheet === 'MULTI_FILTER' ? 'bg-indigo-500 text-white' : 'bg-indigo-50 text-indigo-500'}`}>
+                 <div className={`p-1 rounded-md ${selectedSheet === 'MULTI_FILTER' ? 'bg-indigo-50 dark:bg-indigo-900/400 text-white' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-500 dark:text-indigo-400'}`}>
                     <Filter className="w-4 h-4" />
                  </div>
                  <span className="truncate">多重條件交集</span>
@@ -1222,11 +1240,11 @@ export default function App() {
                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
                  selectedSheet === 'FAVORITES'
                    ? "bg-pink-600 text-white shadow-md shadow-pink-200 font-medium"
-                   : "text-gray-600 hover:bg-pink-50 hover:text-pink-600"
+                   : "text-gray-600 dark:text-gray-300 hover:bg-pink-50 hover:text-pink-600"
                }`}
              >
                <div className="flex items-center gap-2">
-                 <div className={`p-1 rounded-md ${selectedSheet === 'FAVORITES' ? 'bg-pink-500 text-white' : 'bg-pink-50 text-pink-500'}`}>
+                 <div className={`p-1 rounded-md ${selectedSheet === 'FAVORITES' ? 'bg-pink-50 dark:bg-pink-900/400 text-white' : 'bg-pink-50 dark:bg-pink-900/40 text-pink-500 dark:text-pink-400'}`}>
                     <Heart className="w-4 h-4" />
                  </div>
                  <span className="truncate">自選股</span>
@@ -1235,7 +1253,7 @@ export default function App() {
              </button>
           </div>
 
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-2">工作表清單</h3>
+          <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 px-2">工作表清單</h3>
           
           <ul className="space-y-1">
             {visibleSheets.map(sheet => {
@@ -1253,19 +1271,19 @@ export default function App() {
                   }}
                   className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
                     selectedSheet === sheet 
-                      ? 'bg-indigo-50 text-indigo-700 font-medium' 
+                      ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 font-medium' 
                       : isIntersectSelected
-                      ? 'bg-indigo-50 text-indigo-600 font-medium'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 font-medium'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-50'
                   }`}
                 >
                    <span className="truncate py-0.5">{sheet}</span>
                    {selectedSheet === 'MULTI_FILTER' ? (
-                       <div className={`w-4 h-4 rounded shadow-sm flex items-center justify-center shrink-0 border transition-all ${isIntersectSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 bg-white group-hover:border-indigo-400'}`}>
+                       <div className={`w-4 h-4 rounded shadow-sm flex items-center justify-center shrink-0 border transition-all ${isIntersectSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 group-hover:border-indigo-400'}`}>
                           {isIntersectSelected && <Check className="w-3 h-3" />}
                        </div>
                    ) : (
-                       selectedSheet === sheet && <ChevronRight className="w-4 h-4 text-indigo-500 mr-1" />
+                       selectedSheet === sheet && <ChevronRight className="w-4 h-4 text-indigo-500 dark:text-indigo-400 mr-1" />
                    )}
                 </button>
               </li>
@@ -1276,42 +1294,42 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
-        <header className="h-16 shrink-0 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 shadow-sm z-10">
+        <header className="h-16 shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 shadow-sm z-10">
           <div className="flex items-center gap-3">
             <button 
                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-               className="p-2 -ml-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+               className="p-2 -ml-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-50 transition-colors"
             >
                <Menu className="w-5 h-5" />
             </button>
-            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                {selectedSheet === 'MULTI_FILTER' ? "多重條件交集" : (selectedSheet || "載入中...")}
             </h2>
           </div>
           
           <div className="flex items-center gap-2 sm:gap-3">
              {lastFetchTime && (
-                <div className="hidden sm:flex items-center text-xs text-gray-500 font-medium mr-2">
+                <div className="hidden sm:flex items-center text-xs text-gray-500 dark:text-gray-400 font-medium mr-2">
                    最新更新：{lastFetchTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
                 </div>
              )}
              <div className="mr-2 sm:mr-4 flex items-center">
                  {!authLoading && (
                    currentUser ? (
-                      <div className="flex items-center gap-3 bg-white/50 px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
+                      <div className="flex items-center gap-3 bg-white/50 dark:bg-gray-800/50 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm">
                          {currentUser.photoURL ? (
                             <img src={currentUser.photoURL} alt="User" className="w-6 h-6 rounded-full" referrerPolicy="no-referrer" />
                          ) : (
-                            <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center">
-                              <User className="w-4 h-4 text-indigo-600" />
+                            <div className="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/60 rounded-full flex items-center justify-center">
+                              <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                             </div>
                          )}
-                         <span className="text-sm font-medium text-gray-700 hidden sm:block max-w-[120px] truncate">
+                         <span className="text-sm font-medium text-gray-700 dark:text-gray-200 hidden sm:block max-w-[120px] truncate">
                             {currentUser.displayName || currentUser.email}
                          </span>
                          <button 
                             onClick={() => signOut(auth)}
-                            className="p-1 text-gray-400 hover:text-red-500 transition-colors tooltip"
+                            className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors tooltip"
                             title="登出"
                          >
                             <LogOut className="w-4 h-4" />
@@ -1320,7 +1338,7 @@ export default function App() {
                    ) : (
                       <button
                         onClick={handleLogin}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm"
                       >
                          <User className="w-4 h-4" />
                          <span>登入以啟用自選股</span>
@@ -1329,9 +1347,16 @@ export default function App() {
                  )}
              </div>
                <button
+                 onClick={() => setIsDarkMode(!isDarkMode)}
+                 className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-100 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
+                 title={isDarkMode ? '切換為亮色模式' : '切換為深色模式'}
+               >
+                  {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+               </button>
+               <button
                  onClick={exportToCSV}
                  disabled={loading || sortedData.length === 0}
-                 className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50"
+                 className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm disabled:opacity-50"
                >
                   <Download className="w-4 h-4" />
                   <span className="hidden sm:inline">匯出 CSV</span>
@@ -1347,11 +1372,11 @@ export default function App() {
           </div>
         </header>
 
-        <div className="flex-1 flex flex-col p-4 sm:p-6 bg-gray-50 overflow-y-auto md:overflow-hidden space-y-4 sm:space-y-6 custom-scrollbar">
+        <div className="flex-1 flex flex-col p-4 sm:p-6 bg-gray-50 dark:bg-gray-950 overflow-y-auto md:overflow-hidden space-y-4 sm:space-y-6 custom-scrollbar">
             {needsGasUpdate && (
-               <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm animate-in fade-in slide-in-from-top-4">
+               <div className="bg-amber-50 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm animate-in fade-in slide-in-from-top-4">
                   <div className="flex-1">
-                     <h3 className="font-bold text-amber-900 flex items-center gap-2">
+                     <h3 className="font-bold text-amber-900 dark:text-amber-400 flex items-center gap-2">
                         <AlertCircle className="w-5 h-5" />
                         需要更新 GAS 程式碼以支援多工作表
                      </h3>
@@ -1369,8 +1394,8 @@ export default function App() {
             )}
 
             {error ? (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-6 shadow-sm">
-                <h3 className="text-lg font-semibold text-red-900 flex items-center gap-2">
+              <div className="bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-800 rounded-xl p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-red-900 dark:text-red-400 flex items-center gap-2">
                    <AlertCircle className="w-5 h-5" /> 取資料時發生錯誤
                 </h3>
                 <p className="text-red-700 mt-2">{error}</p>
@@ -1378,17 +1403,17 @@ export default function App() {
             ) : (
               <>
                 {selectedSheet === 'MULTI_FILTER' && (
-                  <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm animate-in fade-in shrink-0">
+                  <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm animate-in fade-in shrink-0">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-3">
-                        <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                          <Filter className="w-5 h-5 text-indigo-500" />
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
+                          <Filter className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
                           選擇要交集的工作表
                         </h3>
                         <div className="flex items-center gap-2">
                             {filterPresets.length > 0 && (
                                 <div className="flex items-center gap-1">
                                     <select 
-                                        className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 outline-none focus:border-indigo-500"
+                                        className="px-3 py-1.5 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-indigo-500"
                                         onChange={(e) => {
                                             if (e.target.value) {
                                                 const p = filterPresets.find(p => p.id === e.target.value);
@@ -1414,7 +1439,7 @@ export default function App() {
                             <button
                                 onClick={handleSavePresetClick}
                                 disabled={selectedIntersectSheets.length === 0}
-                                className="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                                className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
                             >
                                 <BookmarkPlus className="w-4 h-4" />
                                 儲存目前篩選
@@ -1430,8 +1455,8 @@ export default function App() {
                                 onClick={() => toggleIntersectSheet(sheet)}
                                 className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
                                   isSelected 
-                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100' 
-                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                    ? 'bg-indigo-50 dark:bg-indigo-900/40 border-indigo-200 text-indigo-700 hover:bg-indigo-100' 
+                                    : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
                                 }`}
                             >
                               <div className="flex items-center gap-1.5">
@@ -1445,8 +1470,8 @@ export default function App() {
                   </div>
                 )}
                 {selectedSheet === 'FAVORITES' && (
-                  <div className="bg-pink-50 border border-pink-100 rounded-xl p-4 shadow-sm flex items-start gap-3 animate-in fade-in shrink-0">
-                    <div className="bg-pink-100 text-pink-600 rounded-full p-1 shrink-0 mt-0.5">
+                  <div className="bg-pink-50 dark:bg-pink-900/40 border border-pink-100 dark:border-pink-800 rounded-xl p-4 shadow-sm flex items-start gap-3 animate-in fade-in shrink-0">
+                    <div className="bg-pink-100 text-pink-600 dark:text-pink-400 rounded-full p-1 shrink-0 mt-0.5">
                        <AlertCircle className="w-4 h-4" />
                     </div>
                     <div>
@@ -1456,8 +1481,8 @@ export default function App() {
                   </div>
                 )}
                 {selectedSheet && selectedSheet !== 'MULTI_FILTER' && selectedSheet !== 'FAVORITES' && SHEET_DESCRIPTIONS[selectedSheet] && (
-                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 shadow-sm flex items-start gap-3 animate-in fade-in shrink-0">
-                    <div className="bg-indigo-100 text-indigo-600 rounded-full p-1 shrink-0 mt-0.5">
+                  <div className="bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-100 dark:border-indigo-800 rounded-xl p-4 shadow-sm flex items-start gap-3 animate-in fade-in shrink-0">
+                    <div className="bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 rounded-full p-1 shrink-0 mt-0.5">
                        <AlertCircle className="w-4 h-4" />
                     </div>
                     <div>
@@ -1467,21 +1492,21 @@ export default function App() {
                   </div>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 shrink-0">
-                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm col-span-1">
-                        <h3 className="text-sm font-medium text-gray-500">總資料筆數</h3>
-                        <p className="text-3xl font-bold mt-1 text-gray-900">{data.length}</p>
+                    <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm col-span-1">
+                        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">總資料筆數</h3>
+                        <p className="text-3xl font-bold mt-1 text-gray-900 dark:text-gray-50">{data.length}</p>
                     </div>
-                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm col-span-1">
-                        <h3 className="text-sm font-medium text-gray-500">資料欄位數</h3>
-                        <p className="text-3xl font-bold mt-1 text-gray-900">{columns.length}</p>
+                    <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm col-span-1">
+                        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">資料欄位數</h3>
+                        <p className="text-3xl font-bold mt-1 text-gray-900 dark:text-gray-50">{columns.length}</p>
                     </div>
                     
-                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm col-span-1 md:col-span-2 flex flex-wrap items-center gap-3">
+                    <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm col-span-1 md:col-span-2 flex flex-wrap items-center gap-3">
                         {availableMonths.length > 0 && (
                             <select
                                 value={selectedMonth}
                                 onChange={(e) => setSelectedMonth(e.target.value)}
-                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-gray-900 transition-all shadow-inner"
                             >
                                 <option value="ALL">全部月份</option>
                                 {availableMonths.map(m => (
@@ -1493,7 +1518,7 @@ export default function App() {
                             <select
                                 value={selectedStatus}
                                 onChange={(e) => setSelectedStatus(e.target.value)}
-                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-gray-900 transition-all shadow-inner"
                             >
                                 <option value="ALL">全部狀態</option>
                                 {availableStatuses.map(s => (
@@ -1505,7 +1530,7 @@ export default function App() {
                             <select
                                 value={selectedMotive}
                                 onChange={(e) => setSelectedMotive(e.target.value)}
-                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-gray-900 transition-all shadow-inner"
                             >
                                 <option value="ALL">全部主力誘因</option>
                                 {availableMotives.map(m => (
@@ -1517,7 +1542,7 @@ export default function App() {
                             <select
                                 value={selectedIndustry}
                                 onChange={(e) => setSelectedIndustry(e.target.value)}
-                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-gray-900 transition-all shadow-inner"
                             >
                                 <option value="ALL">全部主產業</option>
                                 {availableIndustries.map(i => (
@@ -1529,7 +1554,7 @@ export default function App() {
                             <select
                                 value={selectedSubIndustry}
                                 onChange={(e) => setSelectedSubIndustry(e.target.value)}
-                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-gray-900 transition-all shadow-inner"
                             >
                                 <option value="ALL">全部細產業</option>
                                 {availableSubIndustries.map(i => (
@@ -1541,7 +1566,7 @@ export default function App() {
                             <select
                                 value={selectedSector}
                                 onChange={(e) => setSelectedSector(e.target.value)}
-                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-gray-900 transition-all shadow-inner"
                             >
                                 <option value="ALL">全部子領域</option>
                                 {availableSectors.map(i => (
@@ -1551,21 +1576,21 @@ export default function App() {
                         )}
                         <div className="flex-1 shrink-0 w-full md:w-auto relative">
                             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                                <Search className="h-5 w-5 text-gray-400" />
+                                <Search className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                             </div>
                             <input
                                 type="text"
                                 placeholder="搜尋股票代號、名稱或其他關鍵字..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="block w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                                className="block w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-gray-900 transition-all shadow-inner"
                             />
                         </div>
                         
                         <div className="relative">
                             <button
                                 onClick={() => setShowColumnSelector(!showColumnSelector)}
-                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 title="自訂欄位顯示"
                             >
                                 <Columns className="w-4 h-4" />
@@ -1574,10 +1599,10 @@ export default function App() {
                             {showColumnSelector && (
                                 <>
                                     <div className="fixed inset-0 z-40" onClick={() => setShowColumnSelector(false)}></div>
-                                    <div className="absolute right-0 mt-2 w-56 lg:w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
-                                        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-                                            <span className="font-semibold text-gray-900 text-sm">自訂欄位顯示</span>
-                                            <button onClick={() => setShowColumnSelector(false)} className="text-gray-400 hover:text-gray-700 bg-white hover:bg-gray-200 rounded-full p-1 transition-colors">
+                                    <div className="absolute right-0 mt-2 w-56 lg:w-64 bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+                                        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 flex items-center justify-between">
+                                            <span className="font-semibold text-gray-900 dark:text-gray-50 text-sm">自訂欄位顯示</span>
+                                            <button onClick={() => setShowColumnSelector(false)} className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-100 bg-white dark:bg-gray-900 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full p-1 transition-colors">
                                                 <X className="w-3.5 h-3.5" />
                                             </button>
                                         </div>
@@ -1585,16 +1610,16 @@ export default function App() {
                                             {columns.map((col, idx) => {
                                                 const isSticky = idx < stickyColCount;
                                                 return (
-                                                <label key={col} className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${isSticky ? 'opacity-50 cursor-not-allowed bg-gray-50 text-gray-400' : 'hover:bg-indigo-50 text-gray-700'}`}>
+                                                <label key={col} className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${isSticky ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-950 text-gray-400 dark:text-gray-500' : 'hover:bg-indigo-50 text-gray-700 dark:text-gray-200'}`}>
                                                     <input 
                                                         type="checkbox" 
                                                         checked={isSticky ? true : !hiddenColumns.has(col)}
                                                         onChange={() => !isSticky && toggleColumnVisibility(col)}
                                                         disabled={isSticky}
-                                                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 disabled:opacity-50"
+                                                        className="w-4 h-4 text-indigo-600 dark:text-indigo-400 border-gray-300 dark:border-gray-600 rounded focus:ring-indigo-500 disabled:opacity-50"
                                                     />
                                                     <span className="text-sm select-none truncate font-medium">{col}</span>
-                                                    {isSticky && <span className="ml-auto text-[10px] text-gray-400 font-semibold bg-gray-200 px-1.5 py-0.5 rounded">固定表頭</span>}
+                                                    {isSticky && <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500 font-semibold bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded">固定表頭</span>}
                                                 </label>
                                             )})}
                                         </div>
@@ -1605,27 +1630,27 @@ export default function App() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col shrink-0 min-h-[300px] max-h-[600px] md:max-h-none md:h-auto md:flex-1 md:min-h-0">
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col shrink-0 min-h-[300px] max-h-[600px] md:max-h-none md:h-auto md:flex-1 md:min-h-0">
                     <div className="overflow-auto custom-scrollbar flex-1 relative">
                     <table className="w-full min-w-max text-sm text-left border-separate border-spacing-0">
-                      <thead className="text-xs text-gray-600 uppercase bg-gray-50 border-b border-gray-200">
+                      <thead className="text-xs text-gray-600 dark:text-gray-300 uppercase bg-gray-50 dark:bg-gray-950 border-b border-gray-200 dark:border-gray-700">
                         <tr>
                           {visibleColumns.map((col, idx) => (
                             <th 
                                 key={col} 
                                 onClick={() => handleSort(col)}
-                                className={`px-5 py-3.5 font-semibold whitespace-nowrap border-b border-gray-200 border-r border-gray-100 last:border-0 cursor-pointer select-none group sticky top-0 bg-gray-50 ${idx < stickyColCount ? `z-30 hover:bg-gray-200 ${idx === stickyColCount - 1 ? 'shadow-[2px_0_5px_-1px_rgba(0,0,0,0.08)]' : ''}` : 'z-20 shadow-sm hover:bg-gray-200/60'}`}
+                                className={`px-5 py-3.5 font-semibold whitespace-nowrap border-b border-gray-200 dark:border-gray-700 border-r border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer select-none group sticky top-0 bg-gray-50 dark:bg-gray-950 ${idx < stickyColCount ? `z-30 hover:bg-gray-200 dark:hover:bg-gray-700 ${idx === stickyColCount - 1 ? 'shadow-[2px_0_5px_-1px_rgba(0,0,0,0.08)]' : ''}` : 'z-20 shadow-sm hover:bg-gray-200 dark:hover:bg-gray-700/60'}`}
                                 style={getStickyStyles(idx)}
                             >
                                 <div className="flex items-center gap-1.5">
                                   {col}
                                   {sortConfigs.find(c => c.key === col) ? (
-                                     sortConfigs.find(c => c.key === col)?.direction === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-600" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-600" />
+                                     sortConfigs.find(c => c.key === col)?.direction === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                                   ) : (
-                                     <ArrowUpDown className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                     <ArrowUpDown className="w-3 h-3 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                                   )}
                                   {sortConfigs.length > 1 && sortConfigs.findIndex(c => c.key === col) !== -1 && (
-                                     <span className="text-[10px] leading-tight bg-indigo-100 text-indigo-700 px-1 rounded font-bold shadow-sm">{sortConfigs.findIndex(c => c.key === col) + 1}</span>
+                                     <span className="text-[10px] leading-tight bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 px-1 rounded font-bold shadow-sm">{sortConfigs.findIndex(c => c.key === col) + 1}</span>
                                   )}
                                 </div>
                             </th>
@@ -1637,14 +1662,14 @@ export default function App() {
                            <tr>
                               <td colSpan={visibleColumns.length || 1} className="px-6 py-20 text-center">
                                  <RefreshCcw className="w-8 h-8 text-indigo-400 animate-spin mx-auto mb-3" />
-                                 <p className="text-gray-500 text-sm">正在載入資料...</p>
+                                 <p className="text-gray-500 dark:text-gray-400 text-sm">正在載入資料...</p>
                               </td>
                            </tr>
                         ) : selectedSheet === 'MULTI_FILTER' && selectedIntersectSheets.length === 0 ? (
                            <tr>
                               <td colSpan={visibleColumns.length || 1} className="px-6 py-20 text-center">
                                  <Filter className="w-12 h-12 text-indigo-200 mx-auto mb-4" />
-                                 <p className="text-gray-500 text-lg">請選擇至少一個工作表</p>
+                                 <p className="text-gray-500 dark:text-gray-400 text-lg">請選擇至少一個工作表</p>
                               </td>
                            </tr>
                         ) : sortedData.length > 0 ? (
@@ -1664,11 +1689,11 @@ export default function App() {
                                 return (
                                     <td 
                                         key={col} 
-                                        className={`px-5 py-3 max-w-[200px] truncate border-b border-gray-100 border-r border-gray-50 last:border-r-0 ${
-                                            isNegative ? 'text-rose-600' : 
-                                            isPositive ? 'text-emerald-600' : 
-                                            'text-gray-700'
-                                        } ${colIdx < stickyColCount ? `sticky bg-white z-10 group-hover:bg-indigo-50 ${colIdx === stickyColCount - 1 ? 'shadow-[2px_0_5px_-1px_rgba(0,0,0,0.05)]' : ''}` : ''}`}
+                                        className={`px-5 py-3 max-w-[200px] truncate border-b border-gray-100 dark:border-gray-800 border-r border-gray-50 dark:border-gray-800 last:border-r-0 ${
+                                            isNegative ? 'text-rose-600 dark:text-rose-400' : 
+                                            isPositive ? 'text-emerald-600 dark:text-emerald-400' : 
+                                            'text-gray-700 dark:text-gray-200'
+                                        } ${colIdx < stickyColCount ? `sticky bg-white dark:bg-gray-900 z-10 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/40 ${colIdx === stickyColCount - 1 ? 'shadow-[2px_0_5px_-1px_rgba(0,0,0,0.05)] shadow-none dark:shadow-[2px_0_5px_-1px_rgba(0,0,0,0.3)]' : ''}` : ''}`}
                                         title={String(formattedValue || '')}
                                         style={getStickyStyles(colIdx)}
                                     >
@@ -1678,7 +1703,7 @@ export default function App() {
                                                  onClick={(e) => toggleFavorite(e, row)}
                                                  className={`p-1 rounded-full transition-colors ${
                                                     favorites.has(getSymbol(row))
-                                                      ? 'text-pink-500 hover:bg-pink-100'
+                                                      ? 'text-pink-500 dark:text-pink-400 hover:bg-pink-100'
                                                       : 'text-gray-300 hover:text-pink-400 hover:bg-pink-50'
                                                  }`}
                                                  title="加入自選"
@@ -1697,7 +1722,7 @@ export default function App() {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={Math.max(visibleColumns.length, 1)} className="px-6 py-16 text-center text-gray-500">
+                                <td colSpan={Math.max(visibleColumns.length, 1)} className="px-6 py-16 text-center text-gray-500 dark:text-gray-400">
                                     <LayoutTemplate className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                                     <p>找不到符合的資料</p>
                                 </td>
@@ -1707,22 +1732,22 @@ export default function App() {
                     </table>
                   </div>
                   {sortedData.length > 0 && (
-                     <div className="flex items-center justify-between p-4 bg-white border-t border-gray-200 shrink-0">
-                         <div className="text-sm text-gray-500">
-                             顯示 {(currentPage - 1) * pageSize + 1} 至 {Math.min(currentPage * pageSize, sortedData.length)} 筆，共 <span className="font-medium text-gray-900">{sortedData.length}</span> 筆
+                     <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 shrink-0">
+                         <div className="text-sm text-gray-500 dark:text-gray-400">
+                             顯示 {(currentPage - 1) * pageSize + 1} 至 {Math.min(currentPage * pageSize, sortedData.length)} 筆，共 <span className="font-medium text-gray-900 dark:text-gray-50">{sortedData.length}</span> 筆
                          </div>
                          <div className="flex gap-2">
                              <button 
                                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                  disabled={currentPage === 1}
-                                 className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                                 className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                              >
                                  上一頁
                              </button>
                              <button 
                                  onClick={() => setCurrentPage(p => Math.min(Math.ceil(sortedData.length / pageSize), p + 1))}
                                  disabled={currentPage === Math.ceil(sortedData.length / pageSize) || Math.ceil(sortedData.length / pageSize) === 0}
-                                 className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                                 className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                              >
                                  下一頁
                              </button>
@@ -1734,10 +1759,10 @@ export default function App() {
             )}
             
             {loading && data.length > 0 && (
-               <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex items-center justify-center z-10 transition-opacity">
-                  <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-200 flex items-center gap-3">
-                     <RefreshCcw className="w-5 h-5 text-indigo-600 animate-spin" />
-                     <span className="font-medium text-gray-700">更新資料中...</span>
+               <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 backdrop-blur-[1px] flex items-center justify-center z-10 transition-opacity">
+                  <div className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex items-center gap-3">
+                     <RefreshCcw className="w-5 h-5 text-indigo-600 dark:text-indigo-400 animate-spin" />
+                     <span className="font-medium text-gray-700 dark:text-gray-200">更新資料中...</span>
                   </div>
                </div>
             )}
@@ -1746,13 +1771,13 @@ export default function App() {
 
       {/* Row Detail Modal for Mobile / Deep View */}
       {selectedRowInfo && (
-         <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex flex-col items-center justify-end md:justify-center p-0 md:p-4 animate-in fade-in duration-200">
+         <div className="fixed inset-0 bg-gray-900/60 dark:bg-black/60 backdrop-blur-sm z-50 flex flex-col items-center justify-end md:justify-center p-0 md:p-4 animate-in fade-in duration-200">
             <div 
-               className="bg-white w-full md:max-w-4xl rounded-t-3xl md:rounded-2xl shadow-xl flex flex-col md:max-h-[85vh] max-h-[90vh] animate-in slide-in-from-bottom-8 md:zoom-in-95 duration-300"
+               className="bg-white dark:bg-gray-900 w-full md:max-w-4xl rounded-t-3xl md:rounded-2xl shadow-xl flex flex-col md:max-h-[85vh] max-h-[90vh] animate-in slide-in-from-bottom-8 md:zoom-in-95 duration-300"
             >
-               <div className="px-6 py-4 border-b border-gray-100 flex items-start sm:items-center justify-between bg-white rounded-t-3xl md:rounded-t-2xl sticky top-0 z-10 w-full overflow-hidden">
+               <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-start sm:items-center justify-between bg-white dark:bg-gray-900 rounded-t-3xl md:rounded-t-2xl sticky top-0 z-10 w-full overflow-hidden">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full pr-4 min-w-0">
-                     <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2 truncate shrink">
+                     <h3 className="text-xl font-bold text-gray-900 dark:text-gray-50 flex items-center gap-2 truncate shrink">
                         {getName(selectedRowInfo) || getSymbol(selectedRowInfo) || selectedRowInfo[columns[0]] || '詳細資訊'}
                      </h3>
                      {getSymbol(selectedRowInfo) && (
@@ -1761,7 +1786,7 @@ export default function App() {
                               href={`https://tw.stock.yahoo.com/quote/${getSymbol(selectedRowInfo)}/technical-analysis`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-lg transition-colors shrink-0"
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/40 hover:bg-indigo-100 border border-indigo-100 dark:border-indigo-800 rounded-lg transition-colors shrink-0"
                               title="查看 Yahoo 奇摩股市技術線圖"
                            >
                               <LineChart className="w-4 h-4" />
@@ -1772,7 +1797,7 @@ export default function App() {
                               href={`https://tw.stock.yahoo.com/quote/${getSymbol(selectedRowInfo)}/institutional-trading`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 border border-orange-100 rounded-lg transition-colors shrink-0"
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/40 hover:bg-orange-100 border border-orange-100 dark:border-orange-800 rounded-lg transition-colors shrink-0"
                               title="查看 Yahoo 奇摩股市法人買賣"
                            >
                               <PieChart className="w-4 h-4" />
@@ -1783,7 +1808,7 @@ export default function App() {
                               href={`https://tw.stock.yahoo.com/quote/${getSymbol(selectedRowInfo)}/profile`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-cyan-600 bg-cyan-50 hover:bg-cyan-100 border border-cyan-100 rounded-lg transition-colors shrink-0"
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/40 hover:bg-cyan-100 border border-cyan-100 dark:border-cyan-800 rounded-lg transition-colors shrink-0"
                               title="查看 Yahoo 奇摩股市公司基本資料"
                            >
                               <Building className="w-4 h-4" />
@@ -1794,7 +1819,7 @@ export default function App() {
                               href={`https://mops.twse.com.tw/mops/#/web/t146sb05?companyId=${getSymbol(selectedRowInfo)}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg transition-colors shrink-0"
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/40 hover:bg-emerald-100 border border-emerald-100 dark:border-emerald-800 rounded-lg transition-colors shrink-0"
                               title="查看公開資訊觀測站公告"
                            >
                               <FileText className="w-4 h-4" />
@@ -1806,13 +1831,13 @@ export default function App() {
                   </div>
                   <button 
                      onClick={() => setSelectedRowInfo(null)} 
-                     className="text-gray-400 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors shrink-0 ml-2"
+                     className="text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-50 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full p-2 transition-colors shrink-0 ml-2"
                   >
                      ✕
                   </button>
                </div>
                
-               <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50 custom-scrollbar">
+               <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50 dark:bg-gray-900/50 dark:bg-black/50 custom-scrollbar">
                   {(() => {
                      let chartData = null;
                      const rowCols = Object.keys(selectedRowInfo);
@@ -1849,9 +1874,9 @@ export default function App() {
                      }
 
                      return chartData ? (
-                         <div className="mb-6 bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                            <h4 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
-                               <BarChart3 className="w-4 h-4 text-indigo-500" />
+                         <div className="mb-6 bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                            <h4 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+                               <BarChart3 className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                                {chartData.title}
                             </h4>
                             <div className="w-full h-[200px]">
@@ -1881,12 +1906,12 @@ export default function App() {
                         const isPositive = isNumericStr && Number(cellValue) > 0;
                         
                         return (
-                           <div key={idx} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-1">
-                              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{col}</span>
+                           <div key={idx} className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col gap-1">
+                              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{col}</span>
                               <span className={`text-base font-medium break-words ${
-                                 isNegative ? 'text-rose-600' : 
-                                 isPositive ? 'text-emerald-600' : 
-                                 'text-gray-900'
+                                 isNegative ? 'text-rose-600 dark:text-rose-400' : 
+                                 isPositive ? 'text-emerald-600 dark:text-emerald-400' : 
+                                 'text-gray-900 dark:text-gray-50'
                               }`}>
                                  {formattedValue || '-'}
                               </span>
@@ -1896,7 +1921,7 @@ export default function App() {
                   </div>
                </div>
                
-               <div className="px-6 py-4 border-t border-gray-100 bg-white flex justify-end shrink-0 rounded-b-2xl">
+               <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex justify-end shrink-0 rounded-b-2xl">
                   <button
                      onClick={() => setSelectedRowInfo(null)}
                      className="w-full md:w-auto px-6 py-2.5 bg-gray-900 text-white font-medium rounded-xl hover:bg-gray-800 shadow-sm transition-colors active:scale-[0.98]"
@@ -1910,24 +1935,24 @@ export default function App() {
 
       {/* Save Preset Modal */}
       {showPresetModal && (
-         <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-sm rounded-2xl shadow-xl border border-gray-200 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
-               <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                     <BookmarkPlus className="w-5 h-5 text-indigo-600" />
+         <div className="fixed inset-0 bg-gray-900/40 dark:bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-900 w-full max-w-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-950">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-50 flex items-center gap-2">
+                     <BookmarkPlus className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                      儲存篩選組合
                   </h3>
-                  <button onClick={() => setShowPresetModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                  <button onClick={() => setShowPresetModal(false)} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 transition-colors">
                      <X className="w-5 h-5" />
                   </button>
                </div>
                <div className="p-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">名稱</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">名稱</label>
                   <input
                      type="text"
                      value={presetNameInput}
                      onChange={(e) => setPresetNameInput(e.target.value)}
-                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                      placeholder="例如: 勝率篩選 (基本+技術)"
                      autoFocus
                      onKeyDown={(e) => {
@@ -1935,10 +1960,10 @@ export default function App() {
                      }}
                   />
                </div>
-               <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3 rounded-b-2xl">
+               <div className="px-6 py-4 bg-gray-50 dark:bg-gray-950 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3 rounded-b-2xl">
                   <button
                      onClick={() => setShowPresetModal(false)}
-                     className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                     className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                      取消
                   </button>
@@ -1955,18 +1980,18 @@ export default function App() {
 
       {/* GAS Code Modal */}
       {showGasCode && (
-         <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-3xl rounded-2xl shadow-xl border border-gray-200 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
-               <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                     <Code className="w-5 h-5 text-indigo-600" />
+         <div className="fixed inset-0 bg-gray-900/40 dark:bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-900 w-full max-w-3xl rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-950">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-50 flex items-center gap-2">
+                     <Code className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                      GAS 網頁應用程式部署程式碼
                   </h3>
-                  <button onClick={() => setShowGasCode(false)} className="text-gray-400 hover:text-gray-600 p-1">
+                  <button onClick={() => setShowGasCode(false)} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 p-1">
                      ✕
                   </button>
                </div>
-               <div className="flex-1 overflow-y-auto p-6 bg-white space-y-6">
+               <div className="flex-1 overflow-y-auto p-6 bg-white dark:bg-gray-900 space-y-6">
                   <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800 leading-relaxed">
                      <p className="font-semibold mb-1 flex items-center gap-2">
                         <AlertCircle className="w-4 h-4" />
@@ -1977,7 +2002,7 @@ export default function App() {
                   
                   <div className="bg-gray-900 rounded-xl border border-gray-800 shadow-inner overflow-hidden">
                      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700 bg-gray-800/50">
-                        <span className="text-gray-400 text-xs font-mono">Code.gs</span>
+                        <span className="text-gray-400 dark:text-gray-500 text-xs font-mono">Code.gs</span>
                         <button
                            onClick={copyToClipboard}
                            className="flex items-center gap-1.5 px-3 py-1 bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors rounded text-xs font-medium"
@@ -1992,17 +2017,17 @@ export default function App() {
                   </div>
 
                   <div>
-                     <h4 className="font-bold text-gray-900 mb-2">部署教學：</h4>
-                     <ol className="list-decimal pl-5 space-y-1.5 text-sm text-gray-600">
-                        <li>前往試算表，點擊頂部選單 <strong className="text-gray-800">「擴充功能」 {'>'} 「Apps Script」</strong>。</li>
+                     <h4 className="font-bold text-gray-900 dark:text-gray-50 mb-2">部署教學：</h4>
+                     <ol className="list-decimal pl-5 space-y-1.5 text-sm text-gray-600 dark:text-gray-300">
+                        <li>前往試算表，點擊頂部選單 <strong className="text-gray-800 dark:text-gray-100">「擴充功能」 {'>'} 「Apps Script」</strong>。</li>
                         <li>刪除原有的程式碼，貼上上方複製的內容。</li>
-                        <li>點擊右上方的 <strong className="text-gray-800">「部署」 {'>'} 「管理部署作業」</strong>（或「新增部署作業」）。</li>
-                        <li>如果是管理部署作業，點擊右上角鉛筆（編輯），然後將「版本」選為 <strong className="text-gray-800">建立新版本</strong>。</li>
-                        <li>按下 <strong className="text-gray-800">部署</strong>，即可完成更新！介面將自動抓取多個工作表。</li>
+                        <li>點擊右上方的 <strong className="text-gray-800 dark:text-gray-100">「部署」 {'>'} 「管理部署作業」</strong>（或「新增部署作業」）。</li>
+                        <li>如果是管理部署作業，點擊右上角鉛筆（編輯），然後將「版本」選為 <strong className="text-gray-800 dark:text-gray-100">建立新版本</strong>。</li>
+                        <li>按下 <strong className="text-gray-800 dark:text-gray-100">部署</strong>，即可完成更新！介面將自動抓取多個工作表。</li>
                      </ol>
                   </div>
                </div>
-               <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+               <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 flex justify-end">
                   <button
                      onClick={() => setShowGasCode(false)}
                      className="px-5 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-sm transition-colors"
