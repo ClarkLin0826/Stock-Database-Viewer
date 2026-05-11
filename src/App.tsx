@@ -1606,14 +1606,14 @@ export default function App() {
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col shrink-0 min-h-[300px] max-h-[600px] md:max-h-none md:h-auto md:flex-1 md:min-h-0">
                     <div className="overflow-auto custom-scrollbar flex-1 relative">
-                    <table className="w-full text-sm text-left">
+                    <table className="w-full text-sm text-left border-separate border-spacing-0">
                       <thead className="text-xs text-gray-600 uppercase bg-gray-50 border-b border-gray-200">
                         <tr>
                           {visibleColumns.map((col, idx) => (
                             <th 
                                 key={col} 
                                 onClick={() => handleSort(col)}
-                                className={`px-5 py-3.5 font-semibold whitespace-nowrap border-b border-gray-200 border-r border-gray-100 last:border-0 hover:bg-gray-200/60 cursor-pointer select-none group sticky top-0 bg-gray-50 ${idx < stickyColCount ? 'z-30 hover:bg-gray-200/100 shadow-[1px_0_0_0_#f3f4f6]' : 'z-20 shadow-sm'}`}
+                                className={`px-5 py-3.5 font-semibold whitespace-nowrap border-b border-gray-200 border-r border-gray-100 last:border-0 cursor-pointer select-none group sticky top-0 bg-gray-50 ${idx < stickyColCount ? `z-30 hover:bg-gray-200 ${idx === stickyColCount - 1 ? 'shadow-[2px_0_5px_-1px_rgba(0,0,0,0.08)]' : ''}` : 'z-20 shadow-sm hover:bg-gray-200/60'}`}
                                 style={getStickyStyles(idx)}
                             >
                                 <div className="flex items-center gap-1.5">
@@ -1631,7 +1631,7 @@ export default function App() {
                           ))}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody>
                         {loading && data.length === 0 ? (
                            <tr>
                               <td colSpan={visibleColumns.length || 1} className="px-6 py-20 text-center">
@@ -1663,11 +1663,11 @@ export default function App() {
                                 return (
                                     <td 
                                         key={col} 
-                                        className={`px-5 py-3 max-w-[200px] truncate border-r border-gray-50 last:border-0 ${
+                                        className={`px-5 py-3 max-w-[200px] truncate border-b border-gray-100 border-r border-gray-50 last:border-r-0 ${
                                             isNegative ? 'text-rose-600' : 
                                             isPositive ? 'text-emerald-600' : 
                                             'text-gray-700'
-                                        } ${colIdx < stickyColCount ? 'sticky bg-white shadow-[1px_0_0_0_#f9fafb] z-10 group-hover:bg-indigo-50/90' : ''}`}
+                                        } ${colIdx < stickyColCount ? `sticky bg-white z-10 group-hover:bg-indigo-50 ${colIdx === stickyColCount - 1 ? 'shadow-[2px_0_5px_-1px_rgba(0,0,0,0.05)]' : ''}` : ''}`}
                                         title={String(formattedValue || '')}
                                         style={getStickyStyles(colIdx)}
                                     >
