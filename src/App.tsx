@@ -107,6 +107,7 @@ export default function App() {
   // Month filter state
   const [selectedMonth, setSelectedMonth] = useState<string>("ALL");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
+  const [selectedMotive, setSelectedMotive] = useState<string>("ALL");
   const [selectedIndustry, setSelectedIndustry] = useState<string>("ALL");
   const [selectedSubIndustry, setSelectedSubIndustry] = useState<string>("ALL");
   const [selectedSector, setSelectedSector] = useState<string>("ALL");
@@ -749,6 +750,31 @@ export default function App() {
      return Array.from(statuses).sort();
   }, [selectedSheet, selectedIntersectSheets, allSheetsData, hasStatusSheet]);
 
+  const hasMotiveSheet = selectedSheet === 'MULTI_FILTER'
+    ? selectedIntersectSheets.some(s => s === 'CB可轉債雷達')
+    : selectedSheet === 'CB可轉債雷達';
+
+  const availableMotives = useMemo(() => {
+     if (!hasMotiveSheet) return [];
+     let motiveSheetName = selectedSheet === 'MULTI_FILTER'
+       ? selectedIntersectSheets.find(s => s === 'CB可轉債雷達')
+       : selectedSheet;
+     if (!motiveSheetName) return [];
+     const sheetData = allSheetsData[motiveSheetName] || [];
+     if (sheetData.length === 0) return [];
+     const sheetCols = Object.keys(sheetData[0] || {});
+     let targetCol = sheetCols.find(c => c === '主力誘因' || c.includes('主力誘因'));
+     if (!targetCol) return [];
+     const motives = new Set<string>();
+     sheetData.forEach(row => {
+         const val = row[targetCol!];
+         if (val !== undefined && val !== null && val !== '') {
+             motives.add(String(val).trim());
+         }
+     });
+     return Array.from(motives).sort();
+  }, [selectedSheet, selectedIntersectSheets, allSheetsData, hasMotiveSheet]);
+
    const isCBRadar = selectedSheet === '轉換公司債' || selectedIntersectSheets.includes('轉換公司債') || selectedSheet === 'CB可轉債雷達' || selectedIntersectSheets.includes('CB可轉債雷達');
    const stickyColCount = isCBRadar ? 3 : 2;
    const stickyColWidths = [140, 160, 140];
@@ -820,6 +846,16 @@ export default function App() {
        }
     }
 
+    if (selectedSheet !== 'MULTI_FILTER' && selectedMotive !== "ALL" && hasMotiveSheet) {
+       let targetCol = columns.find(c => c === '主力誘因' || c.includes('主力誘因'));
+       if (targetCol) {
+          result = result.filter(row => {
+             const val = String(row[targetCol!] || '').trim();
+             return val === selectedMotive || val.includes(selectedMotive);
+          });
+       }
+    }
+
     let indCol = columns.find(c => c === '主產業' || c.includes('主產業'));
     if (indCol && selectedIndustry !== "ALL") {
        result = result.filter(row => String(row[indCol] || '').trim() === selectedIndustry);
@@ -843,7 +879,7 @@ export default function App() {
          return val !== null && val !== undefined && String(val).toLowerCase().includes(lowerSearch);
       })
     );
-  }, [data, columns, searchTerm, selectedMonth, selectedStatus, selectedIndustry, selectedSubIndustry, selectedSector, hasDateSheet, hasStatusSheet, selectedSheet]);
+  }, [data, columns, searchTerm, selectedMonth, selectedStatus, selectedMotive, selectedIndustry, selectedSubIndustry, selectedSector, hasDateSheet, hasStatusSheet, hasMotiveSheet, selectedSheet]);
 
   const [sortConfigs, setSortConfigs] = useState<{ key: string; direction: 'asc' | 'desc' }[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -983,7 +1019,7 @@ export default function App() {
     return sortableItems;
   }, [filteredData, sortConfigs]);
 
-  const [filterPresets, setFilterPresets] = useState<{ id: string, name: string, sheets: string[], month: string, status: string, industry: string, subIndustry: string, sector: string }[]>(() => {
+  const [filterPresets, setFilterPresets] = useState<{ id: string, name: string, sheets: string[], month: string, status: string, motive?: string, industry: string, subIndustry: string, sector: string }[]>(() => {
      try {
         const saved = localStorage.getItem('filterPresets');
         return saved ? JSON.parse(saved) : [];
@@ -1013,6 +1049,7 @@ export default function App() {
           sheets: selectedIntersectSheets,
           month: selectedMonth,
           status: selectedStatus,
+          motive: selectedMotive,
           industry: selectedIndustry,
           subIndustry: selectedSubIndustry,
           sector: selectedSector
@@ -1025,6 +1062,8 @@ export default function App() {
       setSelectedIntersectSheets(preset.sheets);
       setSelectedMonth(preset.month);
       setSelectedStatus(preset.status);
+      if (preset.motive) setSelectedMotive(preset.motive);
+      else setSelectedMotive("ALL");
       setSelectedIndustry(preset.industry);
       setSelectedSubIndustry(preset.subIndustry);
       setSelectedSector(preset.sector);
@@ -1413,6 +1452,18 @@ export default function App() {
                                 <option value="ALL">全部狀態</option>
                                 {availableStatuses.map(s => (
                                     <option key={s} value={s}>{s}</option>
+                                ))}
+                            </select>
+                        )}
+                        {availableMotives.length > 0 && (
+                            <select
+                                value={selectedMotive}
+                                onChange={(e) => setSelectedMotive(e.target.value)}
+                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                            >
+                                <option value="ALL">全部主力誘因</option>
+                                {availableMotives.map(m => (
+                                    <option key={m} value={m}>{m}</option>
                                 ))}
                             </select>
                         )}
