@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Papa from 'papaparse';
-import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown, Heart, LogOut, User, Columns, X, Download, Bookmark, BookmarkPlus, Trash2, BarChart3 } from 'lucide-react';
+import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown, Heart, LogOut, User, Columns, X, Download, Bookmark, BookmarkPlus, Trash2, BarChart3, PieChart, Building } from 'lucide-react';
 import { db, auth } from './lib/firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User as FirebaseUser } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc, getDocs, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -1166,14 +1166,14 @@ export default function App() {
       {/* Mobile Sidebar Backdrop */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-gray-900/50 z-20 md:hidden transition-opacity" 
+          className="fixed inset-0 bg-gray-900/50 z-40 md:hidden transition-opacity" 
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside 
-        className={`fixed md:relative inset-y-0 left-0 z-30 shrink-0 bg-white border-r border-gray-200 transition-all duration-300 flex flex-col overflow-hidden shadow-sm ${
+        className={`fixed md:relative inset-y-0 left-0 z-50 shrink-0 bg-white border-r border-gray-200 transition-all duration-300 flex flex-col overflow-hidden shadow-sm ${
           isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0 md:w-0 w-64'
         }`}
       >
@@ -1748,15 +1748,15 @@ export default function App() {
       {selectedRowInfo && (
          <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex flex-col items-center justify-end md:justify-center p-0 md:p-4 animate-in fade-in duration-200">
             <div 
-               className="bg-white w-full md:max-w-xl rounded-t-3xl md:rounded-2xl shadow-xl flex flex-col md:max-h-[85vh] max-h-[90vh] animate-in slide-in-from-bottom-8 md:zoom-in-95 duration-300"
+               className="bg-white w-full md:max-w-4xl rounded-t-3xl md:rounded-2xl shadow-xl flex flex-col md:max-h-[85vh] max-h-[90vh] animate-in slide-in-from-bottom-8 md:zoom-in-95 duration-300"
             >
-               <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white rounded-t-3xl md:rounded-t-2xl sticky top-0 z-10">
-                  <div className="flex items-center gap-3 w-full pr-4 overflow-hidden">
+               <div className="px-6 py-4 border-b border-gray-100 flex items-start sm:items-center justify-between bg-white rounded-t-3xl md:rounded-t-2xl sticky top-0 z-10 w-full overflow-hidden">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full pr-4 min-w-0">
                      <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2 truncate shrink">
                         {getName(selectedRowInfo) || getSymbol(selectedRowInfo) || selectedRowInfo[columns[0]] || '詳細資訊'}
                      </h3>
                      {getSymbol(selectedRowInfo) && (
-                        <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1 -mb-1">
+                        <div className="flex items-center gap-2 flex-wrap pb-1 -mb-1 min-w-0 w-full sm:w-auto">
                            <a 
                               href={`https://tw.stock.yahoo.com/quote/${getSymbol(selectedRowInfo)}/technical-analysis`}
                               target="_blank"
@@ -1766,6 +1766,28 @@ export default function App() {
                            >
                               <LineChart className="w-4 h-4" />
                               <span>技術線圖</span>
+                              <ExternalLink className="w-3.5 h-3.5 ml-0.5 opacity-70" />
+                           </a>
+                           <a 
+                              href={`https://tw.stock.yahoo.com/quote/${getSymbol(selectedRowInfo)}/institutional-trading`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 border border-orange-100 rounded-lg transition-colors shrink-0"
+                              title="查看 Yahoo 奇摩股市法人買賣"
+                           >
+                              <PieChart className="w-4 h-4" />
+                              <span>籌碼捷徑</span>
+                              <ExternalLink className="w-3.5 h-3.5 ml-0.5 opacity-70" />
+                           </a>
+                           <a 
+                              href={`https://tw.stock.yahoo.com/quote/${getSymbol(selectedRowInfo)}/profile`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-cyan-600 bg-cyan-50 hover:bg-cyan-100 border border-cyan-100 rounded-lg transition-colors shrink-0"
+                              title="查看 Yahoo 奇摩股市公司基本資料"
+                           >
+                              <Building className="w-4 h-4" />
+                              <span>基本面</span>
                               <ExternalLink className="w-3.5 h-3.5 ml-0.5 opacity-70" />
                            </a>
                            <a 
@@ -1850,7 +1872,7 @@ export default function App() {
                          </div>
                      ) : null;
                   })()}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                      {columns.map((col, idx) => {
                         const cellValue = selectedRowInfo[col];
                         const formattedValue = formatCellValue(cellValue);
