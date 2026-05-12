@@ -1150,9 +1150,20 @@ export default function App() {
   }, [selectedSheet, selectedIntersectSheets, selectedMonth, selectedStatus, selectedMotive, selectedExpiry, selectedETF, selectedIndustry, selectedSubIndustry, selectedSector, searchTerm, sortConfigs]);
 
   useEffect(() => {
-     setHiddenColumns(new Set());
      setSortConfigs([]);
   }, [selectedSheet, selectedIntersectSheets]);
+
+  useEffect(() => {
+     const initialHidden = new Set<string>();
+     if (selectedSheet?.includes('三大法人買賣超')) {
+         columns.forEach(col => {
+             if (col.includes('買進股數') || col.includes('賣出股數')) {
+                 initialHidden.add(col);
+             }
+         });
+     }
+     setHiddenColumns(initialHidden);
+  }, [selectedSheet, selectedIntersectSheets, columns]);
 
   const toggleColumnVisibility = (col: string) => {
      setHiddenColumns(prev => {
