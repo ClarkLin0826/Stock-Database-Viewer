@@ -54,12 +54,12 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 
 const getSymbol = (row: any): string => {
   if (!row) return '';
-  return String(row['代碼'] || row['代號'] || row['現股代號'] || row['證券代號'] || row['公司代號'] || '').trim();
+  return String(row['代碼'] || row['代號'] || row['現股代號'] || row['證券代號'] || row['公司代號'] || row['基金代號'] || row['ETF代碼'] || row['ETF代號'] || '').trim();
 };
 
 const getName = (row: any): string => {
   if (!row) return '';
-  return String(row['名稱'] || row['公司名稱'] || row['股票名稱'] || row['證券名稱'] || '').trim();
+  return String(row['名稱'] || row['公司名稱'] || row['股票名稱'] || row['證券名稱'] || row['ETF名稱'] || row['基金名稱'] || '').trim();
 };
 
 const formatCellValue = (val: any): string => {
@@ -525,20 +525,45 @@ export default function App() {
        }
        // Build data from allSheetsData finding favorites mapping by symbol
        const allRows = Object.values(allSheetsData).flat();
-       // To dedup, maybe we just use standard fields like "代號" or "公司代號"
        const favData: any[] = [];
-       // Also the favorite set itself has names:
-       // We can simply show them if we can't find extra data, but let's try to map extra data if available
        const uniqueSymbols = Array.from(favorites);
+       
+       let allKeys = new Set<string>();
+       allKeys.add('代號');
+       allKeys.add('名稱');
+       
+       const redundantKeys = ['代碼', '證券代號', '公司代號', '現股代號', 'ETF代號', '基金代號', 'ETF代碼', '公司名稱', '股票名稱', '股名', '簡稱', '證券名稱', 'ETF名稱', '名稱', '代號', '基金名稱'];
+
        uniqueSymbols.forEach(symbol => {
-          let row = allRows.find(r => getSymbol(r) === symbol);
-          if (!row) {
-             row = { '代號': symbol, '名稱': '' };
+          const rowsForSymbol = allRows.filter(r => getSymbol(r) === symbol);
+          
+          let mergedRow: any = { '代號': symbol };
+          
+          if (rowsForSymbol.length > 0) {
+              const name = rowsForSymbol.map(r => getName(r)).find(n => n) || '';
+              mergedRow['名稱'] = name;
+              
+              rowsForSymbol.forEach(r => {
+                  Object.keys(r).forEach(k => {
+                      if (!redundantKeys.includes(k) && r[k] !== undefined && r[k] !== null && r[k] !== '') {
+                          mergedRow[k] = r[k];
+                      }
+                  });
+              });
+          } else {
+              mergedRow['名稱'] = '';
           }
-          favData.push(row);
+          
+          favData.push(mergedRow);
+          Object.keys(mergedRow).forEach(k => {
+              if (!redundantKeys.includes(k)) {
+                  allKeys.add(k);
+              }
+          });
        });
+       
        setData(favData);
-       setColumns(favData.length > 0 ? Object.keys(favData[0]) : []);
+       setColumns(Array.from(allKeys));
        return;
     }
     if (selectedSheet && selectedSheet !== 'MULTI_FILTER' && !needsGasUpdate) {
