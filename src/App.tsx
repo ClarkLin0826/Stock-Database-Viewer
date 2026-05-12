@@ -1157,7 +1157,7 @@ export default function App() {
      const initialHidden = new Set<string>();
      if (selectedSheet?.includes('三大法人買賣超')) {
          columns.forEach(col => {
-             if (col.includes('買進股數') || col.includes('賣出股數')) {
+             if (col.includes('買進') || col.includes('賣出') || col.includes('自營買賣超總計')) {
                  initialHidden.add(col);
              }
          });
