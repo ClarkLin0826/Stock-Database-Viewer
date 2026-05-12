@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Papa from 'papaparse';
-import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown, Heart, LogOut, User, Columns, X, Download, Bookmark, BookmarkPlus, Trash2, BarChart3, PieChart, Building, Sun, Moon } from 'lucide-react';
+import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown, Heart, LogOut, User, Columns, X, Download, Bookmark, BookmarkPlus, Trash2, BarChart3, PieChart, Building, Sun, Moon, ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
 import { db, auth } from './lib/firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User as FirebaseUser } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc, getDocs, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -107,6 +107,7 @@ export default function App() {
 
   // Sidebar & Sheets State
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
+  const [isIntersectCollapsed, setIsIntersectCollapsed] = useState(false);
   const [sheets, setSheets] = useState<string[]>([]);
   const [allSheetsData, setAllSheetsData] = useState<Record<string, any[]>>({});
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
@@ -295,6 +296,27 @@ export default function App() {
 
   const handleDragOver = (e: React.DragEvent<HTMLLIElement>) => {
     e.preventDefault();
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLLIElement>, index: number) => {
+    setDraggedSheetIndex(index);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLLIElement>) => {
+    if (draggedSheetIndex === null) return;
+    const touch = e.touches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    const li = element?.closest('li[data-index]');
+    if (li) {
+      const idx = parseInt(li.getAttribute('data-index') || '-1', 10);
+      if (idx !== -1 && idx !== draggedSheetIndex) {
+        setDragOverSheetIndex(idx);
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+     handleDragEnd();
   };
 
   const normalizeDataArray = (arr: any[]) => {
@@ -1448,14 +1470,23 @@ export default function App() {
               return (
               <li 
                  key={sheet}
+                 data-index={index}
                  draggable
                  onDragStart={(e) => handleDragStart(e, index)}
                  onDragEnter={(e) => handleDragEnter(e, index)}
                  onDragEnd={handleDragEnd}
                  onDragOver={handleDragOver}
-                 className={`transition-all duration-200 ${dragOverSheetIndex === index ? (draggedSheetIndex !== null && draggedSheetIndex > index ? 'border-t-2 border-indigo-500' : 'border-b-2 border-indigo-500') : 'border-t-2 border-transparent border-b-2 border-transparent'} ${draggedSheetIndex === index ? 'opacity-50' : ''}`}
+                 className={`transition-all duration-200 flex items-center gap-1 ${dragOverSheetIndex === index ? (draggedSheetIndex !== null && draggedSheetIndex > index ? 'border-t-2 border-indigo-500' : 'border-b-2 border-indigo-500') : 'border-t-2 border-transparent border-b-2 border-transparent'} ${draggedSheetIndex === index ? 'opacity-50' : ''}`}
                  style={{ marginTop: '-2px', marginBottom: '-2px' }}
               >
+                <div 
+                   className="touch-none p-1 -ml-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 cursor-grab active:cursor-grabbing shrink-0"
+                   onTouchStart={(e) => handleTouchStart(e, index)}
+                   onTouchMove={handleTouchMove}
+                   onTouchEnd={handleTouchEnd}
+                >
+                   <GripVertical className="w-4 h-4" />
+                </div>
                 <button
                   onClick={() => {
                       if (selectedSheet === 'MULTI_FILTER') {
@@ -1601,10 +1632,15 @@ export default function App() {
                 {selectedSheet === 'MULTI_FILTER' && (
                   <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm animate-in fade-in shrink-0">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-3">
-                        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
-                          <Filter className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
-                          選擇要交集的工作表
-                        </h3>
+                        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setIsIntersectCollapsed(!isIntersectCollapsed)}>
+                            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
+                              <Filter className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+                              選擇要交集的工作表
+                            </h3>
+                            <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500">
+                              {isIntersectCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                            </button>
+                        </div>
                         <div className="flex items-center gap-2">
                             {filterPresets.length > 0 && (
                                 <div className="flex items-center gap-1">
@@ -1642,27 +1678,29 @@ export default function App() {
                             </button>
                         </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {visibleSheets.map(sheet => {
-                          const isSelected = selectedIntersectSheets.includes(sheet);
-                          return (
-                            <button
-                                key={sheet}
-                                onClick={() => toggleIntersectSheet(sheet)}
-                                className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
-                                  isSelected 
-                                    ? 'bg-indigo-50 dark:bg-indigo-900/40 border-indigo-200 text-indigo-700 hover:bg-indigo-100' 
-                                    : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                                }`}
-                            >
-                              <div className="flex items-center gap-1.5">
-                                {isSelected && <Check className="w-3.5 h-3.5" />}
-                                {sheet}
-                              </div>
-                            </button>
-                          );
-                      })}
-                    </div>
+                    {!isIntersectCollapsed && (
+                        <div className="flex flex-wrap gap-2">
+                          {visibleSheets.map(sheet => {
+                              const isSelected = selectedIntersectSheets.includes(sheet);
+                              return (
+                                <button
+                                    key={sheet}
+                                    onClick={() => toggleIntersectSheet(sheet)}
+                                    className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
+                                      isSelected 
+                                        ? 'bg-indigo-50 dark:bg-indigo-900/40 border-indigo-200 text-indigo-700 hover:bg-indigo-100' 
+                                        : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                    }`}
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    {isSelected && <Check className="w-3.5 h-3.5" />}
+                                    {sheet}
+                                  </div>
+                                </button>
+                              );
+                          })}
+                        </div>
+                    )}
                   </div>
                 )}
                 {selectedSheet === 'FAVORITES' && (
