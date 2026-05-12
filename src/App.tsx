@@ -957,6 +957,7 @@ export default function App() {
 
   useEffect(() => {
      setHiddenColumns(new Set());
+     setSortConfigs([]);
   }, [selectedSheet, selectedIntersectSheets]);
 
   const toggleColumnVisibility = (col: string) => {
@@ -977,6 +978,7 @@ export default function App() {
 
   const handleSort = (key: string) => {
      setSortConfigs(prev => {
+        // Multi-column sort
         const existingIdx = prev.findIndex(c => c.key === key);
         if (existingIdx !== -1) {
            const existing = prev[existingIdx];
@@ -1004,8 +1006,16 @@ export default function App() {
            let aValue = a[config.key];
            let bValue = b[config.key];
            
-           if (aValue === null || aValue === undefined || aValue === '') return config.direction === 'asc' ? 1 : -1;
-           if (bValue === null || bValue === undefined || bValue === '') return config.direction === 'asc' ? -1 : 1;
+           if (typeof aValue === 'string') aValue = aValue.trim();
+           if (typeof bValue === 'string') bValue = bValue.trim();
+           
+           if (aValue === bValue) continue;
+
+           const aEmpty = aValue === null || aValue === undefined || aValue === '';
+           const bEmpty = bValue === null || bValue === undefined || bValue === '';
+
+           if (aEmpty) return config.direction === 'asc' ? 1 : -1;
+           if (bEmpty) return config.direction === 'asc' ? -1 : 1;
            
            if (config.key.includes('本益比狀態')) {
               const aStr = String(aValue);
@@ -1638,6 +1648,7 @@ export default function App() {
                           {visibleColumns.map((col, idx) => (
                             <th 
                                 key={col} 
+                                title={`點擊排序 ${col} (支援多重排序)`}
                                 onClick={() => handleSort(col)}
                                 className={`px-5 py-3.5 font-semibold whitespace-nowrap border-b border-gray-200 dark:border-gray-700 border-r border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer select-none group sticky top-0 bg-gray-50 dark:bg-gray-950 ${idx < stickyColCount ? `z-30 hover:bg-gray-200 dark:hover:bg-gray-700 ${idx === stickyColCount - 1 ? 'shadow-[2px_0_5px_-1px_rgba(0,0,0,0.08)]' : ''}` : 'z-20 shadow-sm hover:bg-gray-200 dark:hover:bg-gray-700/60'}`}
                                 style={getStickyStyles(idx)}
