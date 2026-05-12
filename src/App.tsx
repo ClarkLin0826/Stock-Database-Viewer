@@ -370,11 +370,6 @@ export default function App() {
 
         if (sheetNames.length > 0) {
            const initialSheets = [targetSheet];
-           for (const name of sheetNames) {
-              if (name !== targetSheet && initialSheets.length < 3) {
-                 initialSheets.push(name);
-              }
-           }
            const remainingSheets = sheetNames.filter(name => !initialSheets.includes(name));
 
            const initialRes = await Promise.all(
