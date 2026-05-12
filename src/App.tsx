@@ -1536,27 +1536,27 @@ export default function App() {
           
           <div className="flex items-center gap-2 sm:gap-3">
              {lastFetchTime && (
-                <div className="hidden sm:flex items-center text-xs text-gray-500 dark:text-gray-400 font-medium mr-2">
+                <div className="hidden lg:flex items-center text-xs text-gray-500 dark:text-gray-400 font-medium mr-2">
                    最新更新：{lastFetchTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
                 </div>
              )}
-             <div className="mr-2 sm:mr-4 flex items-center">
+             <div className="flex items-center mr-1 sm:mr-2 lg:mr-4">
                  {!authLoading && (
                    currentUser ? (
-                      <div className="flex items-center gap-3 bg-white/50 dark:bg-gray-800/50 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm">
+                      <div className="flex items-center gap-2 lg:gap-3 bg-white/50 dark:bg-gray-800/50 p-1.5 lg:px-3 lg:py-1.5 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm">
                          {currentUser.photoURL ? (
                             <img src={currentUser.photoURL} alt="User" className="w-6 h-6 rounded-full" referrerPolicy="no-referrer" />
                          ) : (
-                            <div className="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/60 rounded-full flex items-center justify-center">
+                            <div className="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/60 rounded-full flex items-center justify-center shrink-0">
                               <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                             </div>
                          )}
-                         <span className="text-sm font-medium text-gray-700 dark:text-gray-200 hidden sm:block max-w-[120px] truncate">
+                         <span className="text-sm font-medium text-gray-700 dark:text-gray-200 hidden lg:block max-w-[120px] truncate">
                             {currentUser.displayName || currentUser.email}
                          </span>
                          <button 
                             onClick={() => signOut(auth)}
-                            className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors tooltip"
+                            className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors tooltip"
                             title="登出"
                          >
                             <LogOut className="w-4 h-4" />
@@ -1565,10 +1565,10 @@ export default function App() {
                    ) : (
                       <button
                         onClick={handleLogin}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm"
+                        className="inline-flex items-center gap-1.5 px-2 py-1.5 lg:px-3 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm"
                       >
                          <User className="w-4 h-4" />
-                         <span>登入以啟用自選股</span>
+                         <span className="hidden lg:inline">登入以啟用自選股</span>
                       </button>
                    )
                  )}
@@ -1583,18 +1583,20 @@ export default function App() {
                <button
                  onClick={exportToCSV}
                  disabled={loading || sortedData.length === 0}
-                 className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm disabled:opacity-50"
+                 className="flex items-center justify-center p-2 lg:px-3 lg:py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm disabled:opacity-50"
+                 title="匯出 CSV"
                >
                   <Download className="w-4 h-4" />
-                  <span className="hidden sm:inline">匯出 CSV</span>
+                  <span className="hidden lg:inline ml-1.5">匯出 CSV</span>
                </button>
                <button
                  onClick={() => selectedSheet && selectedSheet !== 'MULTI_FILTER' ? loadData(selectedSheet, true) : fetchSheets()}
                  disabled={loading}
-                 className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50"
+                 className="flex items-center justify-center p-2 lg:px-3 lg:py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50"
+                 title="重新整理"
                >
                   <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">重新整理</span>
+                  <span className="hidden lg:inline ml-1.5">重新整理</span>
                </button>
           </div>
         </header>
@@ -1834,7 +1836,7 @@ export default function App() {
                                 ))}
                             </select>
                         )}
-                        <div className="flex-1 shrink-0 w-full md:w-auto relative">
+                        <div className="flex-1 shrink-0 w-full xl:w-auto relative">
                             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                                 <Search className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                             </div>
@@ -1847,7 +1849,7 @@ export default function App() {
                             />
                         </div>
                         
-                        <div className="relative">
+                        <div className="relative ml-auto">
                             <button
                                 onClick={() => setShowColumnSelector(!showColumnSelector)}
                                 className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
