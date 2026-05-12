@@ -115,6 +115,19 @@ export default function App() {
   
   // Row Detail Modal
   const [selectedRowInfo, setSelectedRowInfo] = useState<Record<string, any> | null>(null);
+
+  const getOrderedSheets = (apiSheets: string[]) => {
+      try {
+         const saved = localStorage.getItem('sheetOrder');
+         if (saved) {
+            const savedOrder = JSON.parse(saved) as string[];
+            const ordered = savedOrder.filter(s => apiSheets.includes(s));
+            const newSheets = apiSheets.filter(s => !ordered.includes(s));
+            return [...ordered, ...newSheets];
+         }
+      } catch (e) {}
+      return apiSheets;
+  };
   
   // GAS Code modal state
   const [showGasCode, setShowGasCode] = useState(false);
@@ -127,11 +140,17 @@ export default function App() {
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [selectedMotive, setSelectedMotive] = useState<string>("ALL");
   const [selectedExpiry, setSelectedExpiry] = useState<string>("ALL");
+  const [selectedETF, setSelectedETF] = useState<string>("ALL");
   const [selectedIndustry, setSelectedIndustry] = useState<string>("ALL");
   const [selectedSubIndustry, setSelectedSubIndustry] = useState<string>("ALL");
   const [selectedSector, setSelectedSector] = useState<string>("ALL");
 
   useEffect(() => {
+     setSelectedMonth("ALL");
+     setSelectedStatus("ALL");
+     setSelectedMotive("ALL");
+     setSelectedExpiry("ALL");
+     setSelectedETF("ALL");
      setSelectedIndustry("ALL");
      setSelectedSubIndustry("ALL");
      setSelectedSector("ALL");
@@ -222,10 +241,6 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-     setSelectedMonth("ALL");
-  }, [selectedSheet]);
-
   const SHEET_DESCRIPTIONS: Record<string, string> = {
     '上市價量齊揚': '股價六天新高，成交量大於前一天30%',
     '上櫃價量齊揚': '股價六天新高，成交量大於前一天30%',
@@ -236,8 +251,51 @@ export default function App() {
   };
   const [needsGasUpdate, setNeedsGasUpdate] = useState(false);
 
+  // Drag and Drop state
+  const [draggedSheetIndex, setDraggedSheetIndex] = useState<number | null>(null);
+  const [dragOverSheetIndex, setDragOverSheetIndex] = useState<number | null>(null);
+
   // You can still manually test another URL in code, but UI hides it.
   const apiUrl = DEFAULT_API_URL;
+
+  const handleDragStart = (e: React.DragEvent<HTMLLIElement>, index: number) => {
+    setDraggedSheetIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLLIElement>, index: number) => {
+    if (draggedSheetIndex === null || draggedSheetIndex === index) return;
+    setDragOverSheetIndex(index);
+  };
+
+  const handleDragEnd = () => {
+     if (draggedSheetIndex !== null && dragOverSheetIndex !== null && draggedSheetIndex !== dragOverSheetIndex) {
+         setSheets(prev => {
+             const draggedSheetName = visibleSheets[draggedSheetIndex];
+             const dragOverSheetName = visibleSheets[dragOverSheetIndex];
+             
+             if (draggedSheetName && dragOverSheetName) {
+                 const actualDragIdx = prev.indexOf(draggedSheetName);
+                 const actualDropIdx = prev.indexOf(dragOverSheetName);
+                 
+                 if (actualDragIdx !== -1 && actualDropIdx !== -1) {
+                     const newSheets = [...prev];
+                     newSheets.splice(actualDragIdx, 1);
+                     newSheets.splice(actualDropIdx, 0, draggedSheetName);
+                     localStorage.setItem('sheetOrder', JSON.stringify(newSheets));
+                     return newSheets;
+                 }
+             }
+             return prev;
+         });
+     }
+     setDraggedSheetIndex(null);
+     setDragOverSheetIndex(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLLIElement>) => {
+    e.preventDefault();
+  };
 
   const normalizeDataArray = (arr: any[]) => {
      if (!Array.isArray(arr)) return arr;
@@ -280,9 +338,10 @@ export default function App() {
         const originalSheetNames = jsonData.sheets as string[];
         const sheetNames = originalSheetNames.filter(name => name !== '上市櫃公司清單_含產業');
         
-        setSheets(sheetNames);
+        const ordered = getOrderedSheets(sheetNames);
+        setSheets(ordered);
         
-        const targetSheet = selectedSheet && sheetNames.includes(selectedSheet) ? selectedSheet : (sheetNames[0] || "");
+        const targetSheet = selectedSheet && ordered.includes(selectedSheet) ? selectedSheet : (ordered[0] || "");
         if (!selectedSheet && targetSheet) {
           setSelectedSheet(targetSheet);
         }
@@ -351,9 +410,10 @@ export default function App() {
             normalizedAllData[k] = normalizeDataArray(jsonData.allData[k]);
         });
         setAllSheetsData(normalizedAllData);
-        setSheets(jsonData.sheets || []);
-        if (jsonData.sheets?.length > 0 && !selectedSheet) {
-          setSelectedSheet(jsonData.sheets[0]);
+        const ordered = getOrderedSheets(jsonData.sheets || []);
+        setSheets(ordered);
+        if (ordered.length > 0 && !selectedSheet) {
+          setSelectedSheet(ordered[0]);
         }
         setLoadingSheets(false);
         setLoading(false);
@@ -425,7 +485,7 @@ export default function App() {
              normalizedAllData[k] = normalizeDataArray(jsonData.allData[k]);
          });
          setAllSheetsData(normalizedAllData);
-         if (jsonData.sheets) setSheets(jsonData.sheets);
+         if (jsonData.sheets) setSheets(getOrderedSheets(jsonData.sheets));
          sheetData = normalizedAllData[sheetName] || [];
       } else if (Array.isArray(jsonData)) {
          sheetData = normalizeDataArray(jsonData);
@@ -525,6 +585,16 @@ export default function App() {
                    sData = sData.filter(row => {
                       const val = String(row[targetCol!] || '').trim();
                       return val === selectedMotive || val.includes(selectedMotive);
+                   });
+               }
+           }
+           if (selectedETF !== "ALL" && sheetName.includes('主動型ETF')) {
+               const sheetCols = Object.keys(sData[0] || {});
+               const targetCol = sheetCols.find(c => c === 'ETF名稱' || c === 'ETF名稱(代號)' || c.includes('ETF名稱') || c.includes('基金名稱') || c.includes('ETF') || c.includes('基金'));
+               if (targetCol) {
+                   sData = sData.filter(row => {
+                      const val = String(row[targetCol!] || '').trim();
+                      return val === selectedETF || val.includes(selectedETF);
                    });
                }
            }
@@ -862,6 +932,31 @@ export default function App() {
      return Array.from(motives).sort();
   }, [selectedSheet, selectedIntersectSheets, allSheetsData, hasMotiveSheet]);
 
+  const hasETFSheet = selectedSheet === 'MULTI_FILTER'
+    ? selectedIntersectSheets.some(s => s.includes('主動型ETF'))
+    : selectedSheet?.includes('主動型ETF');
+
+  const availableETFs = useMemo(() => {
+     if (!hasETFSheet) return [];
+     let etfSheetName = selectedSheet === 'MULTI_FILTER'
+       ? selectedIntersectSheets.find(s => s.includes('主動型ETF'))
+       : selectedSheet;
+     if (!etfSheetName) return [];
+     const sheetData = allSheetsData[etfSheetName] || [];
+     if (sheetData.length === 0) return [];
+     const sheetCols = Object.keys(sheetData[0] || {});
+     let targetCol = sheetCols.find(c => c === 'ETF名稱' || c === 'ETF名稱(代號)' || c.includes('ETF名稱') || c.includes('基金名稱') || c.includes('ETF') || c.includes('基金'));
+     if (!targetCol) return [];
+     const etfs = new Set<string>();
+     sheetData.forEach(row => {
+         const val = row[targetCol!];
+         if (val !== undefined && val !== null && val !== '') {
+             etfs.add(String(val).trim());
+         }
+     });
+     return Array.from(etfs).sort();
+  }, [selectedSheet, selectedIntersectSheets, allSheetsData, hasETFSheet]);
+
    const isCBRadar = selectedSheet === '轉換公司債' || selectedIntersectSheets.includes('轉換公司債') || selectedSheet === 'CB可轉債雷達' || selectedIntersectSheets.includes('CB可轉債雷達');
    const stickyColCount = isCBRadar ? 3 : 2;
    const stickyColWidths = [140, 160, 140];
@@ -944,6 +1039,16 @@ export default function App() {
        }
     }
 
+    if (selectedSheet !== 'MULTI_FILTER' && selectedETF !== "ALL" && hasETFSheet) {
+       let targetCol = columns.find(c => c === 'ETF名稱' || c === 'ETF名稱(代號)' || c.includes('ETF名稱') || c.includes('基金名稱') || c.includes('ETF') || c.includes('基金'));
+       if (targetCol) {
+          result = result.filter(row => {
+             const val = String(row[targetCol!] || '').trim();
+             return val === selectedETF || val.includes(selectedETF);
+          });
+       }
+    }
+
     if (selectedSheet !== 'MULTI_FILTER' && selectedExpiry !== "ALL" && isCBRadar) {
        let targetCol = columns.find(c => c === '轉換迄日' || c.includes('迄日'));
        if (targetCol) {
@@ -990,7 +1095,7 @@ export default function App() {
          return val !== null && val !== undefined && String(val).toLowerCase().includes(lowerSearch);
       })
     );
-  }, [data, columns, searchTerm, selectedMonth, selectedStatus, selectedMotive, selectedExpiry, selectedIndustry, selectedSubIndustry, selectedSector, hasDateSheet, hasStatusSheet, hasMotiveSheet, isCBRadar, selectedSheet]);
+  }, [data, columns, searchTerm, selectedMonth, selectedStatus, selectedMotive, selectedExpiry, selectedETF, selectedIndustry, selectedSubIndustry, selectedSector, hasDateSheet, hasStatusSheet, hasMotiveSheet, hasETFSheet, isCBRadar, selectedSheet]);
 
   const [sortConfigs, setSortConfigs] = useState<{ key: string; direction: 'asc' | 'desc' }[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -1000,7 +1105,7 @@ export default function App() {
 
   useEffect(() => {
      setCurrentPage(1);
-  }, [selectedSheet, selectedIntersectSheets, selectedMonth, selectedStatus, selectedMotive, selectedExpiry, selectedIndustry, selectedSubIndustry, selectedSector, searchTerm, sortConfigs]);
+  }, [selectedSheet, selectedIntersectSheets, selectedMonth, selectedStatus, selectedMotive, selectedExpiry, selectedETF, selectedIndustry, selectedSubIndustry, selectedSector, searchTerm, sortConfigs]);
 
   useEffect(() => {
      setHiddenColumns(new Set());
@@ -1313,10 +1418,19 @@ export default function App() {
           <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 px-2">工作表清單</h3>
           
           <ul className="space-y-1">
-            {visibleSheets.map(sheet => {
+            {visibleSheets.map((sheet, index) => {
               const isIntersectSelected = selectedSheet === 'MULTI_FILTER' && selectedIntersectSheets.includes(sheet);
               return (
-              <li key={sheet}>
+              <li 
+                 key={sheet}
+                 draggable
+                 onDragStart={(e) => handleDragStart(e, index)}
+                 onDragEnter={(e) => handleDragEnter(e, index)}
+                 onDragEnd={handleDragEnd}
+                 onDragOver={handleDragOver}
+                 className={`transition-all duration-200 ${dragOverSheetIndex === index ? (draggedSheetIndex !== null && draggedSheetIndex > index ? 'border-t-2 border-indigo-500' : 'border-b-2 border-indigo-500') : 'border-t-2 border-transparent border-b-2 border-transparent'} ${draggedSheetIndex === index ? 'opacity-50' : ''}`}
+                 style={{ marginTop: '-2px', marginBottom: '-2px' }}
+              >
                 <button
                   onClick={() => {
                       if (selectedSheet === 'MULTI_FILTER') {
@@ -1592,6 +1706,18 @@ export default function App() {
                                 <option value="ALL">全部主力誘因</option>
                                 {availableMotives.map(m => (
                                     <option key={m} value={m}>{m}</option>
+                                ))}
+                            </select>
+                        )}
+                        {availableETFs.length > 0 && (
+                            <select
+                                value={selectedETF}
+                                onChange={(e) => setSelectedETF(e.target.value)}
+                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-gray-900 transition-all shadow-inner"
+                            >
+                                <option value="ALL">全部ETF</option>
+                                {availableETFs.map(e => (
+                                    <option key={e} value={e}>{e}</option>
                                 ))}
                             </select>
                         )}
