@@ -126,6 +126,7 @@ export default function App() {
   const [selectedMonth, setSelectedMonth] = useState<string>("ALL");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [selectedMotive, setSelectedMotive] = useState<string>("ALL");
+  const [selectedExpiry, setSelectedExpiry] = useState<string>("ALL");
   const [selectedIndustry, setSelectedIndustry] = useState<string>("ALL");
   const [selectedSubIndustry, setSelectedSubIndustry] = useState<string>("ALL");
   const [selectedSector, setSelectedSector] = useState<string>("ALL");
@@ -527,6 +528,29 @@ export default function App() {
                    });
                }
            }
+           if (selectedExpiry !== "ALL" && (sheetName === 'CB可轉債雷達' || sheetName === '轉換公司債')) {
+               const sheetCols = Object.keys(sData[0] || {});
+               const targetCol = sheetCols.find(c => c === '轉換迄日' || c.includes('迄日'));
+               if (targetCol) {
+                   const now = new Date();
+                   now.setHours(0, 0, 0, 0); // normalize time
+                   sData = sData.filter(row => {
+                      const val = String(row[targetCol!] || '').trim();
+                      if (!val) return false;
+                      const expiryDate = new Date(val);
+                      if (isNaN(expiryDate.getTime())) return true; // fallback
+                      const diffTime = expiryDate.getTime() - now.getTime();
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      
+                      if (selectedExpiry === '近半年到期') return diffDays >= 0 && diffDays <= 183;
+                      if (selectedExpiry === '近一年到期') return diffDays >= 0 && diffDays <= 365;
+                      if (selectedExpiry === '1年~2年') return diffDays > 365 && diffDays <= 730;
+                      if (selectedExpiry === '2年以上') return diffDays > 730;
+                      if (selectedExpiry === '已到期') return diffDays < 0;
+                      return true;
+                   });
+               }
+           }
            return sData;
        };
 
@@ -920,6 +944,29 @@ export default function App() {
        }
     }
 
+    if (selectedSheet !== 'MULTI_FILTER' && selectedExpiry !== "ALL" && isCBRadar) {
+       let targetCol = columns.find(c => c === '轉換迄日' || c.includes('迄日'));
+       if (targetCol) {
+          const now = new Date();
+          now.setHours(0, 0, 0, 0);
+          result = result.filter(row => {
+             const val = String(row[targetCol!] || '').trim();
+             if (!val) return false;
+             const expiryDate = new Date(val);
+             if (isNaN(expiryDate.getTime())) return true;
+             const diffTime = expiryDate.getTime() - now.getTime();
+             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+             
+             if (selectedExpiry === '近半年到期') return diffDays >= 0 && diffDays <= 183;
+             if (selectedExpiry === '近一年到期') return diffDays >= 0 && diffDays <= 365;
+             if (selectedExpiry === '1年~2年') return diffDays > 365 && diffDays <= 730;
+             if (selectedExpiry === '2年以上') return diffDays > 730;
+             if (selectedExpiry === '已到期') return diffDays < 0;
+             return true;
+          });
+       }
+    }
+
     let indCol = columns.find(c => c === '主產業' || c.includes('主產業'));
     if (indCol && selectedIndustry !== "ALL") {
        result = result.filter(row => String(row[indCol] || '').trim() === selectedIndustry);
@@ -943,7 +990,7 @@ export default function App() {
          return val !== null && val !== undefined && String(val).toLowerCase().includes(lowerSearch);
       })
     );
-  }, [data, columns, searchTerm, selectedMonth, selectedStatus, selectedMotive, selectedIndustry, selectedSubIndustry, selectedSector, hasDateSheet, hasStatusSheet, hasMotiveSheet, selectedSheet]);
+  }, [data, columns, searchTerm, selectedMonth, selectedStatus, selectedMotive, selectedExpiry, selectedIndustry, selectedSubIndustry, selectedSector, hasDateSheet, hasStatusSheet, hasMotiveSheet, isCBRadar, selectedSheet]);
 
   const [sortConfigs, setSortConfigs] = useState<{ key: string; direction: 'asc' | 'desc' }[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -953,7 +1000,7 @@ export default function App() {
 
   useEffect(() => {
      setCurrentPage(1);
-  }, [selectedSheet, selectedIntersectSheets, selectedMonth, selectedStatus, selectedIndustry, selectedSubIndustry, selectedSector, searchTerm, sortConfigs]);
+  }, [selectedSheet, selectedIntersectSheets, selectedMonth, selectedStatus, selectedMotive, selectedExpiry, selectedIndustry, selectedSubIndustry, selectedSector, searchTerm, sortConfigs]);
 
   useEffect(() => {
      setHiddenColumns(new Set());
@@ -1546,6 +1593,20 @@ export default function App() {
                                 {availableMotives.map(m => (
                                     <option key={m} value={m}>{m}</option>
                                 ))}
+                            </select>
+                        )}
+                        {isCBRadar && (
+                            <select
+                                value={selectedExpiry}
+                                onChange={(e) => setSelectedExpiry(e.target.value)}
+                                className="block w-[140px] md:w-40 py-2.5 px-3 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-gray-900 transition-all shadow-inner"
+                            >
+                                <option value="ALL">全部到期日</option>
+                                <option value="近半年到期">近半年到期</option>
+                                <option value="近一年到期">近一年到期</option>
+                                <option value="1年~2年">1年~2年</option>
+                                <option value="2年以上">2年以上</option>
+                                <option value="已到期">已到期</option>
                             </select>
                         )}
                         {availableIndustries.length > 0 && (
