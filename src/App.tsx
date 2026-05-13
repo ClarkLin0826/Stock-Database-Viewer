@@ -1384,7 +1384,7 @@ export default function App() {
   const renderDashboardView = () => {
       const isUS = selectedSheet === '美股早報';
       const aiReportColumn = columns.find(c => c.includes('AI') && (c.includes('總結') || c.includes('報告') || c.includes('結論')));
-      const aiReportText = data[0]?.[aiReportColumn as string] || '';
+      let aiReportText = data[0]?.[aiReportColumn as string] || '';
       let dateText = data[0]?.['日期'] || data[0]?.['備份日期'] || '';
       
       if (dateText && typeof dateText === 'string' && dateText.includes(' ') && columns.includes('備份日期')) {
@@ -1402,99 +1402,164 @@ export default function App() {
               sections.push({ title: '美股行情', sheets: [], stocks: cardsData });
           }
       } else {
-          // Parse the AI Report Text for 台股盤後資料AI分析
-          const lines = aiReportText.split('\n');
-          let currentSection = {
-              title: '其他提及股票',
-              sheets: [] as string[],
-              stocks: [] as any[]
-          };
-          sections.push(currentSection);
+          const isNewFormat = columns.includes('潛力股點評') || columns.includes('說明');
           
-          const sheetNameRegex = /【(.*?)】/g;
-          const symbolRegex1 = /\b(\d{4,6})[\s\-\_]*([A-Za-z\u4e00-\u9fa5]+)/g;
-          const symbolRegex2 = /([A-Za-z\u4e00-\u9fa5]+)[\s\-\_]*[（\(](\d{4,6})[）\)]/g;
-          
-          const allStocksMap = new Map();
-          Object.entries(allSheetsData).forEach(([sheetName, sheetData]) => {
-              if (sheetName === selectedSheet) return;
-              sheetData.forEach(row => {
-                  const symbol = getSymbol(row);
-                  if (symbol) {
-                      const hasPriceData = row['收盤價'] || row['成交價'] || row['漲跌幅(%)'] || row['漲跌幅'];
-                      if (!allStocksMap.has(symbol) || hasPriceData) {
-                          allStocksMap.set(symbol, row);
-                      }
-                  }
-              });
-          });
-
-          // Helper to find stock row data
-          const getStockRow = (symbol: string, name: string, preferredSheets: string[]) => {
-              // 1. Check preferred sheets first
-              for (const sheetName of preferredSheets) {
-                  const targetSheet = allSheetsData[sheetName];
-                  if (targetSheet) {
-                      const found = targetSheet.find(r => getSymbol(r) === symbol);
-                      if (found) return { ...found, '代碼': symbol, '名稱': name };
-                  }
-              }
-              // 2. Fallback to any sheet
-              if (allStocksMap.has(symbol)) {
-                  return { ...allStocksMap.get(symbol), '代碼': symbol, '名稱': name };
-              }
-              // 3. Just mock
-              return { '代碼': symbol, '名稱': name };
-          };
-
-          const seenSymbols = new Set<string>();
-
-          for (const line of lines) {
-              let match;
-              const sheetsInLine: string[] = [];
-              while ((match = sheetNameRegex.exec(line)) !== null) {
-                  sheetsInLine.push(match[1].trim());
-              }
-              
-              if (sheetsInLine.length > 0) {
-                  currentSection = {
-                      title: line.replace(/：選自.*工作表/, '').trim(),
-                      sheets: sheetsInLine,
-                      stocks: []
-                  };
-                  sections.push(currentSection);
-              }
-              
-              const extractStocks = (regex: RegExp, symGroup: number, nameGroup: number) => {
-                  let m;
-                  while ((m = regex.exec(line)) !== null) {
-                      const sym = m[symGroup];
-                      const nm = m[nameGroup];
-                      if (sym && nm && nm.length > 0) {
-                          if (!seenSymbols.has(sym)) {
-                              seenSymbols.add(sym);
-                              currentSection.stocks.push(getStockRow(sym, nm, currentSection.sheets));
+          if (isNewFormat) {
+              const allStocksMap = new Map();
+              Object.entries(allSheetsData).forEach(([sheetName, sheetData]) => {
+                  if (sheetName === selectedSheet) return;
+                  sheetData.forEach(row => {
+                      const symbol = getSymbol(row);
+                      if (symbol) {
+                          const hasPriceData = row['收盤價'] || row['成交價'] || row['漲跌幅(%)'] || row['漲跌幅'];
+                          if (!allStocksMap.has(symbol) || hasPriceData) {
+                              allStocksMap.set(symbol, row);
                           }
                       }
+                  });
+              });
+
+              const getStockRow = (symbol: string, name: string, preferredSheets: string[]) => {
+                  for (const sheetName of preferredSheets) {
+                      const targetSheet = allSheetsData[sheetName];
+                      if (targetSheet) {
+                          const found = targetSheet.find(r => getSymbol(r) === symbol);
+                          if (found) return { ...found, '代碼': symbol, '名稱': name };
+                      }
                   }
+                  if (allStocksMap.has(symbol)) {
+                      return { ...allStocksMap.get(symbol), '代碼': symbol, '名稱': name };
+                  }
+                  return null;
               };
               
-              extractStocks(symbolRegex1, 1, 2);
-              extractStocks(symbolRegex2, 2, 1);
-          }
-          
-          allStocksMap.forEach((row, symbol) => {
-              if (seenSymbols.has(symbol)) return;
-              const name = getName(row);
-              const symbolRegex = new RegExp(`(^|[^\\d])${symbol}([^\\d]|$)`);
-              const hasSymbol = symbolRegex.test(aiReportText);
-              const hasName = name && name.length >= 2 ? aiReportText.includes(name) : false;
+              let newFormatText = '';
+
+              sortedData.forEach(row => {
+                  const category = row['潛力股點評'];
+                  const symbol = getSymbol(row);
+                  const name = getName(row);
+                  const desc = row['說明'];
+                  const sourceStr = row['來源檔案名稱'] || '';
+                  const sourceSheets = sourceStr ? sourceStr.split(',').map((s: string) => s.trim()) : [];
+
+                  if (category === '資金流向' || category?.includes('資金流向')) {
+                      if (desc) {
+                          newFormatText += (newFormatText ? '\n\n' : '') + desc;
+                      }
+                  } else if (symbol && category) {
+                      let section = sections.find(s => s.title === category);
+                      if (!section) {
+                          section = { title: category, sheets: [], stocks: [] };
+                          sections.push(section);
+                      }
+                      sourceSheets.forEach((s: string) => {
+                          if (!section.sheets.includes(s)) section.sheets.push(s);
+                      });
+                      
+                      const stockData = getStockRow(symbol, name || '未命名', sourceSheets);
+                      section.stocks.push({ ...row, ...stockData, '代碼': symbol, '名稱': name, '說明': desc });
+                  }
+              });
               
-              if (hasSymbol || hasName) {
-                  sections[0].stocks.push({ ...row, '代碼': symbol, '名稱': name || "" });
-                  seenSymbols.add(symbol);
+              if (newFormatText) {
+                  aiReportText = newFormatText;
               }
-          });
+          } else {
+              // Parse the AI Report Text for old 台股盤後資料AI分析
+              const lines = aiReportText.split('\n');
+              let currentSection = {
+                  title: '其他提及股票',
+                  sheets: [] as string[],
+                  stocks: [] as any[]
+              };
+              sections.push(currentSection);
+              
+              const sheetNameRegex = /【(.*?)】/g;
+              const symbolRegex1 = /\b(\d{4,6})[\s\-\_]*([A-Za-z\u4e00-\u9fa5]+)/g;
+              const symbolRegex2 = /([A-Za-z\u4e00-\u9fa5]+)[\s\-\_]*[（\(](\d{4,6})[）\)]/g;
+              
+              const allStocksMap = new Map();
+              Object.entries(allSheetsData).forEach(([sheetName, sheetData]) => {
+                  if (sheetName === selectedSheet) return;
+                  sheetData.forEach(row => {
+                      const symbol = getSymbol(row);
+                      if (symbol) {
+                          const hasPriceData = row['收盤價'] || row['成交價'] || row['漲跌幅(%)'] || row['漲跌幅'];
+                          if (!allStocksMap.has(symbol) || hasPriceData) {
+                              allStocksMap.set(symbol, row);
+                          }
+                      }
+                  });
+              });
+  
+              // Helper to find stock row data
+              const getStockRow = (symbol: string, name: string, preferredSheets: string[]) => {
+                  // 1. Check preferred sheets first
+                  for (const sheetName of preferredSheets) {
+                      const targetSheet = allSheetsData[sheetName];
+                      if (targetSheet) {
+                          const found = targetSheet.find(r => getSymbol(r) === symbol);
+                          if (found) return { ...found, '代碼': symbol, '名稱': name };
+                      }
+                  }
+                  // 2. Fallback to any sheet
+                  if (allStocksMap.has(symbol)) {
+                      return { ...allStocksMap.get(symbol), '代碼': symbol, '名稱': name };
+                  }
+                  // 3. Just mock
+                  return { '代碼': symbol, '名稱': name };
+              };
+  
+              const seenSymbols = new Set<string>();
+  
+              for (const line of lines) {
+                  let match;
+                  const sheetsInLine: string[] = [];
+                  while ((match = sheetNameRegex.exec(line)) !== null) {
+                      sheetsInLine.push(match[1].trim());
+                  }
+                  
+                  if (sheetsInLine.length > 0) {
+                      currentSection = {
+                          title: line.replace(/：選自.*工作表/, '').trim(),
+                          sheets: sheetsInLine,
+                          stocks: []
+                      };
+                      sections.push(currentSection);
+                  }
+                  
+                  const extractStocks = (regex: RegExp, symGroup: number, nameGroup: number) => {
+                      let m;
+                      while ((m = regex.exec(line)) !== null) {
+                          const sym = m[symGroup];
+                          const nm = m[nameGroup];
+                          if (sym && nm && nm.length > 0) {
+                              if (!seenSymbols.has(sym)) {
+                                  seenSymbols.add(sym);
+                                  currentSection.stocks.push(getStockRow(sym, nm, currentSection.sheets));
+                              }
+                          }
+                      }
+                  };
+                  
+                  extractStocks(symbolRegex1, 1, 2);
+                  extractStocks(symbolRegex2, 2, 1);
+              }
+              
+              allStocksMap.forEach((row, symbol) => {
+                  if (seenSymbols.has(symbol)) return;
+                  const name = getName(row);
+                  const symbolRegex = new RegExp(`(^|[^\\d])${symbol}([^\\d]|$)`);
+                  const hasSymbol = symbolRegex.test(aiReportText);
+                  const hasName = name && name.length >= 2 ? aiReportText.includes(name) : false;
+                  
+                  if (hasSymbol || hasName) {
+                      sections[0].stocks.push({ ...row, '代碼': symbol, '名稱': name || "" });
+                      seenSymbols.add(symbol);
+                  }
+              });
+          }
       }
 
       sections = sections.filter(s => s.stocks.length > 0);
@@ -1504,6 +1569,7 @@ export default function App() {
           const name = row['名稱'] || row['代碼'] || '未命名';
           const price = row['收盤價'] || row['成交價'];
           const change = row['漲跌幅(%)'] || row['漲跌幅'];
+          const desc = row['說明'];
           const changeNum = parseFloat(change || '0');
           const isPositive = changeNum > 0;
           const isNegative = changeNum < 0;
@@ -1529,6 +1595,11 @@ export default function App() {
                       {isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : isNegative ? <TrendingDown className="w-3.5 h-3.5" /> : <span className="w-3.5 h-3.5 line-clamp-1 block leading-[14px] text-center">-</span>}
                       {changeNum !== 0 ? (changeNum > 0 ? '+' + change + '%' : change + '%') : (change ? change + '%' : '-')}
                   </div>
+                  {desc && (
+                     <div className="mt-3 text-xs text-gray-500 dark:text-gray-400 text-left w-full line-clamp-3">
+                         {desc}
+                     </div>
+                  )}
               </div>
           );
       };
