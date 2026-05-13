@@ -69,9 +69,7 @@ const formatCellValue = (val: any): string => {
   const numVal = Number(strVal);
   // Only format if it's a valid number with a decimal point and it doesn't end with '%'
   if (!isNaN(numVal) && strVal.includes('.') && !strVal.includes('%')) {
-    // Math.round to 2 decimal places to remove floating point inaccuracies, 
-    // then to string to remove unnecessary trailing zeros. But user requested '最多到0.00這個位數'
-    // so we can use parseFloat and toFixed then parseFloat again to strip trailing zeroes.
+    // 只要顯示0.00位數就好了
     return parseFloat(numVal.toFixed(2)).toString();
   }
   return strVal;
@@ -107,8 +105,17 @@ export default function App() {
   }, [isDarkMode]);
 
   // Sidebar & Sheets State
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
   const [isIntersectCollapsed, setIsIntersectCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const handleResize = () => setIsMobile(window.innerWidth < 768);
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
   const [sheets, setSheets] = useState<string[]>([]);
   const [allSheetsData, setAllSheetsData] = useState<Record<string, any[]>>({});
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
@@ -1006,7 +1013,7 @@ export default function App() {
   }, [selectedSheet, selectedIntersectSheets, allSheetsData, hasETFSheet]);
 
    const isCBRadar = selectedSheet === '轉換公司債' || selectedIntersectSheets.includes('轉換公司債') || selectedSheet === 'CB可轉債雷達' || selectedIntersectSheets.includes('CB可轉債雷達');
-   const stickyColCount = isCBRadar ? 3 : 2;
+   const stickyColCount = isMobile ? 1 : (isCBRadar ? 3 : 2);
    const stickyColWidths = [140, 160, 140];
 
    const getStickyStyles = (idx: number) => {
@@ -1613,10 +1620,21 @@ export default function App() {
       const renderCard = (row: any, idx: number) => {
           const symbol = getSymbol(row);
           const name = getName(row) || symbol || '未命名';
-          const price = row['目前股價'] || row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'];
-                    const change = row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)'];
+          const priceStr = row['目前股價'] || row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'];
+          const changeStr = row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)'];
           const desc = row['說明'];
-          const changeNum = parseFloat(change || '0');
+          
+          let price = priceStr;
+          if (priceStr !== null && priceStr !== undefined && !isNaN(Number(priceStr)) && priceStr !== '') {
+              price = parseFloat(Number(priceStr).toFixed(2)).toString();
+          }
+          
+          let changeNum = parseFloat(changeStr || '0');
+          let change = changeStr;
+          if (changeStr !== null && changeStr !== undefined && !isNaN(Number(changeStr)) && changeStr !== '') {
+              change = parseFloat(Number(changeStr).toFixed(2)).toString();
+          }
+          
           const isPositive = changeNum > 0;
           const isNegative = changeNum < 0;
           
