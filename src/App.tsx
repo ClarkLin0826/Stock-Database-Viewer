@@ -1461,7 +1461,11 @@ export default function App() {
                       });
                       
                       const stockData = getStockRow(symbol, name || '未命名', sourceSheets);
-                      section.stocks.push({ ...row, ...stockData, '代碼': symbol, '名稱': name, '說明': desc });
+                      let mergedDate = row['日期'] || stockData?.['日期'];
+                      if (mergedDate && typeof mergedDate === 'string' && mergedDate.includes(' ')) {
+                          mergedDate = mergedDate.split(' ')[0];
+                      }
+                      section.stocks.push({ ...row, ...stockData, '代碼': symbol, '名稱': name, '說明': desc, '日期': mergedDate });
                   }
               });
               
