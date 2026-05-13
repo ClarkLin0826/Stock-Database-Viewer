@@ -881,15 +881,15 @@ export default function App() {
   }, [selectedSheet, allSheetsData]);
 
   const hasDateSheet = selectedSheet === 'MULTI_FILTER' 
-    ? selectedIntersectSheets.some(s => ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(s))
-    : ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(selectedSheet || '');
+    ? selectedIntersectSheets.some(s => ['庫藏股', '財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(s))
+    : ['庫藏股', '財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(selectedSheet || '');
 
   const availableMonths = useMemo(() => {
     if (!hasDateSheet) return [];
     
     // Find which sheet is the date sheet
     let dateSheetName = selectedSheet === 'MULTI_FILTER' 
-       ? selectedIntersectSheets.find(s => ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(s))
+       ? selectedIntersectSheets.find(s => ['庫藏股', '財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(s))
        : selectedSheet;
        
     if (!dateSheetName) return [];
@@ -1749,7 +1749,10 @@ export default function App() {
                   <div className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-50 mb-2 truncate max-w-full px-1" title={price || '-'}>{price || '-'}</div>
                   <div className={`flex items-center justify-center gap-1 px-2.5 py-1 rounded-full font-bold text-xs md:text-sm ${isPositive ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' : isNegative ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}>
                       {isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : isNegative ? <TrendingDown className="w-3.5 h-3.5" /> : <span className="w-3.5 h-3.5 line-clamp-1 block leading-[14px] text-center">-</span>}
-                      {changeNum !== 0 ? (changeNum > 0 ? '+' + change + '%' : change + '%') : (change ? change + '%' : '-')}
+                      {(() => {
+                          let changeDisplay = typeof change === 'string' && change.endsWith('%') ? change : change + '%';
+                          return changeNum !== 0 ? (changeNum > 0 ? '+' + changeDisplay : changeDisplay) : (change ? changeDisplay : '-');
+                      })()}
                   </div>
                   {desc && (
                      <div className="mt-3 text-xs text-gray-500 dark:text-gray-400 text-left w-full line-clamp-3">
