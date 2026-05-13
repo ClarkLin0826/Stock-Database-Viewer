@@ -1385,14 +1385,15 @@ export default function App() {
       const isUS = selectedSheet === '美股早報';
       const aiReportColumn = columns.find(c => c.includes('AI') && (c.includes('總結') || c.includes('報告') || c.includes('結論')));
       let aiReportText = data[0]?.[aiReportColumn as string] || '';
-      let dateText = data[0]?.['日期'] || data[0]?.['備份日期'] || '';
+      let dateText = data[0]?.['備份日期'] || data[0]?.['日期'] || '';
       
-      if (dateText && typeof dateText === 'string' && dateText.includes(' ') && columns.includes('備份日期')) {
+      if (dateText && typeof dateText === 'string' && dateText.includes(' ')) {
           dateText = dateText.split(' ')[0];
       }
 
       const title = isUS ? 'AI 晨間總結' : 'AI 盤後總結';
       const Icon = isUS ? Sun : Moon;
+      const subtitle = isUS ? '每天早上6:30更新' : '每天晚上22:30更新';
 
       let sections: {title: string, sheets: string[], stocks: any[]}[] = [];
 
@@ -1461,7 +1462,7 @@ export default function App() {
                       });
                       
                       const stockData = getStockRow(symbol, name || '未命名', sourceSheets);
-                      let mergedDate = row['日期'] || stockData?.['日期'];
+                      let mergedDate = row['備份日期'] || row['日期'] || stockData?.['備份日期'] || stockData?.['日期'];
                       if (mergedDate && typeof mergedDate === 'string' && mergedDate.includes(' ')) {
                           mergedDate = mergedDate.split(' ')[0];
                       }
@@ -1615,10 +1616,15 @@ export default function App() {
           <div className="flex flex-col gap-6 w-full p-2 md:p-6 pb-20 animate-in fade-in duration-500">
               {aiReportText && (
                   <div className="bg-white dark:bg-gray-900 rounded-xl p-5 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
-                          <Icon className={`w-6 h-6 ${isUS ? 'text-orange-500' : 'text-indigo-400'}`} />
-                          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 tracking-tight">{title}</h2>
-                          {dateText && <span className="ml-auto text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{dateText}</span>}
+                      <div className="flex flex-col gap-1 mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
+                          <div className="flex items-center gap-2">
+                              <Icon className={`w-6 h-6 ${isUS ? 'text-orange-500' : 'text-indigo-400'}`} />
+                              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 tracking-tight">{title}</h2>
+                              {dateText && <span className="ml-auto text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{dateText}</span>}
+                          </div>
+                          <div className="text-sm font-medium text-gray-500 dark:text-gray-400 ml-8">
+                              {subtitle}
+                          </div>
                       </div>
                       <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none prose-indigo markdown-body leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                           <Markdown>{aiReportText}</Markdown>
