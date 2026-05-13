@@ -330,16 +330,23 @@ export default function App() {
        "電腦及周邊設備": "電腦及周邊設備業",
      };
      return arr.map(row => {
-        const newRow = { ...row };
-        for (const key in newRow) {
-            if (key === '主產業' || key.includes('主產業')) {
-                const val = newRow[key];
+        const newRow: any = {};
+        for (const key in row) {
+            let newKey = key;
+            if (key === '備份日期' || key.trim() === '備份日期') {
+                newKey = '日期';
+            }
+            const val = row[key];
+            
+            if (newKey === '主產業' || newKey.includes('主產業')) {
                 if (typeof val === 'string') {
                     const trimmed = val.trim();
-                    if (NORMALIZE_MAP[trimmed]) {
-                        newRow[key] = NORMALIZE_MAP[trimmed];
-                    }
+                    newRow[newKey] = NORMALIZE_MAP[trimmed] || val;
+                } else {
+                    newRow[newKey] = val;
                 }
+            } else {
+                newRow[newKey] = val;
             }
         }
         return newRow;
@@ -357,9 +364,7 @@ export default function App() {
       const jsonData = await response.json();
       
       if (jsonData && jsonData.sheets) {
-        // 先過濾掉不要顯示的工作表
-        const originalSheetNames = jsonData.sheets as string[];
-        const sheetNames = originalSheetNames.filter(name => name !== '上市櫃公司清單_含產業');
+        const sheetNames = jsonData.sheets as string[];
         
         const ordered = getOrderedSheets(sheetNames);
         setSheets(ordered);
@@ -1376,18 +1381,165 @@ export default function App() {
      document.body.removeChild(link);
   };
 
-  const renderMorningReport = () => {
-      const aiReportColumn = columns.find(c => c.includes('AI') && c.includes('總結'));
+  const renderDashboardView = () => {
+      const isUS = selectedSheet === '美股早報';
+      const aiReportColumn = columns.find(c => c.includes('AI') && (c.includes('總結') || c.includes('報告') || c.includes('結論')));
       const aiReportText = data[0]?.[aiReportColumn as string] || '';
-      const dateText = data[0]?.['日期'] || '';
+      let dateText = data[0]?.['日期'] || data[0]?.['備份日期'] || '';
+      
+      if (dateText && typeof dateText === 'string' && dateText.includes(' ') && columns.includes('備份日期')) {
+          dateText = dateText.split(' ')[0];
+      }
+
+      const title = isUS ? 'AI 晨間總結' : 'AI 盤後總結';
+      const Icon = isUS ? Sun : Moon;
+
+      let sections: {title: string, sheets: string[], stocks: any[]}[] = [];
+
+      if (isUS) {
+          const cardsData = sortedData.filter(row => row['收盤價'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['成交價']);
+          if (cardsData.length > 0) {
+              sections.push({ title: '美股行情', sheets: [], stocks: cardsData });
+          }
+      } else {
+          // Parse the AI Report Text for 台股盤後資料AI分析
+          const lines = aiReportText.split('\n');
+          let currentSection = {
+              title: '其他提及股票',
+              sheets: [] as string[],
+              stocks: [] as any[]
+          };
+          sections.push(currentSection);
+          
+          const sheetNameRegex = /【(.*?)】/g;
+          const symbolRegex1 = /\b(\d{4,6})[\s\-\_]*([A-Za-z\u4e00-\u9fa5]+)/g;
+          const symbolRegex2 = /([A-Za-z\u4e00-\u9fa5]+)[\s\-\_]*[（\(](\d{4,6})[）\)]/g;
+          
+          const allStocksMap = new Map();
+          Object.entries(allSheetsData).forEach(([sheetName, sheetData]) => {
+              if (sheetName === selectedSheet) return;
+              sheetData.forEach(row => {
+                  const symbol = getSymbol(row);
+                  if (symbol) {
+                      const hasPriceData = row['收盤價'] || row['成交價'] || row['漲跌幅(%)'] || row['漲跌幅'];
+                      if (!allStocksMap.has(symbol) || hasPriceData) {
+                          allStocksMap.set(symbol, row);
+                      }
+                  }
+              });
+          });
+
+          // Helper to find stock row data
+          const getStockRow = (symbol: string, name: string, preferredSheets: string[]) => {
+              // 1. Check preferred sheets first
+              for (const sheetName of preferredSheets) {
+                  const targetSheet = allSheetsData[sheetName];
+                  if (targetSheet) {
+                      const found = targetSheet.find(r => getSymbol(r) === symbol);
+                      if (found) return { ...found, '代碼': symbol, '名稱': name };
+                  }
+              }
+              // 2. Fallback to any sheet
+              if (allStocksMap.has(symbol)) {
+                  return { ...allStocksMap.get(symbol), '代碼': symbol, '名稱': name };
+              }
+              // 3. Just mock
+              return { '代碼': symbol, '名稱': name };
+          };
+
+          const seenSymbols = new Set<string>();
+
+          for (const line of lines) {
+              let match;
+              const sheetsInLine: string[] = [];
+              while ((match = sheetNameRegex.exec(line)) !== null) {
+                  sheetsInLine.push(match[1].trim());
+              }
+              
+              if (sheetsInLine.length > 0) {
+                  currentSection = {
+                      title: line.replace(/：選自.*工作表/, '').trim(),
+                      sheets: sheetsInLine,
+                      stocks: []
+                  };
+                  sections.push(currentSection);
+              }
+              
+              const extractStocks = (regex: RegExp, symGroup: number, nameGroup: number) => {
+                  let m;
+                  while ((m = regex.exec(line)) !== null) {
+                      const sym = m[symGroup];
+                      const nm = m[nameGroup];
+                      if (sym && nm && nm.length > 0) {
+                          if (!seenSymbols.has(sym)) {
+                              seenSymbols.add(sym);
+                              currentSection.stocks.push(getStockRow(sym, nm, currentSection.sheets));
+                          }
+                      }
+                  }
+              };
+              
+              extractStocks(symbolRegex1, 1, 2);
+              extractStocks(symbolRegex2, 2, 1);
+          }
+          
+          allStocksMap.forEach((row, symbol) => {
+              if (seenSymbols.has(symbol)) return;
+              const name = getName(row);
+              const symbolRegex = new RegExp(`(^|[^\\d])${symbol}([^\\d]|$)`);
+              const hasSymbol = symbolRegex.test(aiReportText);
+              const hasName = name && name.length >= 2 ? aiReportText.includes(name) : false;
+              
+              if (hasSymbol || hasName) {
+                  sections[0].stocks.push({ ...row, '代碼': symbol, '名稱': name || "" });
+                  seenSymbols.add(symbol);
+              }
+          });
+      }
+
+      sections = sections.filter(s => s.stocks.length > 0);
+      
+      const renderCard = (row: any, idx: number) => {
+          const symbol = getSymbol(row);
+          const name = row['名稱'] || row['代碼'] || '未命名';
+          const price = row['收盤價'] || row['成交價'];
+          const change = row['漲跌幅(%)'] || row['漲跌幅'];
+          const changeNum = parseFloat(change || '0');
+          const isPositive = changeNum > 0;
+          const isNegative = changeNum < 0;
+          
+          return (
+              <div key={`${symbol}-${idx}`} onClick={() => !isUS && setSelectedRowInfo(row)} className={`relative bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center text-center transition-all animate-in zoom-in-95 duration-500 ${!isUS ? 'hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800 cursor-pointer' : ''}`} style={{ animationDelay: `${Math.min(idx * 30, 500)}ms` }}>
+                 {!isUS && symbol && (
+                    <button 
+                       onClick={(e) => toggleFavorite(e, row)}
+                       className={`absolute top-2 right-2 p-1.5 rounded-full transition-colors z-10 ${
+                          favorites.has(symbol)
+                            ? 'text-pink-500 bg-pink-50 dark:bg-pink-900/40 hover:bg-pink-100'
+                            : 'text-gray-300 hover:text-pink-400 hover:bg-pink-50 dark:hover:bg-gray-800'
+                       }`}
+                       title="加入自選"
+                    >
+                      <Heart className="w-4 h-4" fill={favorites.has(symbol) ? "currentColor" : "none"} />
+                    </button>
+                 )}
+                  <div className="font-medium text-gray-500 dark:text-gray-400 mb-1.5 truncate w-full px-1 text-sm md:text-base mt-2" title={name}>{name}</div>
+                  <div className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-50 mb-2 truncate max-w-full px-1" title={price || '-'}>{price || '-'}</div>
+                  <div className={`flex items-center justify-center gap-1 px-2.5 py-1 rounded-full font-bold text-xs md:text-sm ${isPositive ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' : isNegative ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}>
+                      {isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : isNegative ? <TrendingDown className="w-3.5 h-3.5" /> : <span className="w-3.5 h-3.5 line-clamp-1 block leading-[14px] text-center">-</span>}
+                      {changeNum !== 0 ? (changeNum > 0 ? '+' + change + '%' : change + '%') : (change ? change + '%' : '-')}
+                  </div>
+              </div>
+          );
+      };
 
       return (
           <div className="flex flex-col gap-6 w-full p-2 md:p-6 pb-20 animate-in fade-in duration-500">
               {aiReportText && (
                   <div className="bg-white dark:bg-gray-900 rounded-xl p-5 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
-                          <Sun className="w-6 h-6 text-orange-500" />
-                          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 tracking-tight">AI 晨間總結</h2>
+                          <Icon className={`w-6 h-6 ${isUS ? 'text-orange-500' : 'text-indigo-400'}`} />
+                          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 tracking-tight">{title}</h2>
                           {dateText && <span className="ml-auto text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{dateText}</span>}
                       </div>
                       <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none prose-indigo markdown-body leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
@@ -1395,28 +1547,23 @@ export default function App() {
                       </div>
                   </div>
               )}
-              <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-                  {sortedData.map((row, idx) => {
-                      const name = row['名稱'] || row['代碼'] || '未命名';
-                      const price = row['收盤價'];
-                      const change = row['漲跌幅(%)'] || row['漲跌幅'];
-                      const changeNum = parseFloat(change || '0');
-                      const isPositive = changeNum > 0;
-                      const isNegative = changeNum < 0;
-                      if (!price && !change) return null;
-                      
-                      return (
-                          <div key={idx} onClick={() => setSelectedRowInfo(row)} className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center text-center hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800 transition-all cursor-pointer animate-in zoom-in-95 duration-500" style={{ animationDelay: `${Math.min(idx * 30, 500)}ms` }}>
-                              <div className="font-medium text-gray-500 dark:text-gray-400 mb-1.5 truncate w-full px-1 text-sm md:text-base" title={name}>{name}</div>
-                              <div className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-50 mb-2 truncate max-w-full px-1" title={price}>{price}</div>
-                              <div className={`flex items-center justify-center gap-1 px-2.5 py-1 rounded-full font-bold text-xs md:text-sm ${isPositive ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' : isNegative ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}>
-                                  {isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : isNegative ? <TrendingDown className="w-3.5 h-3.5" /> : <span className="w-3.5 h-3.5 line-clamp-1 block leading-[14px] text-center">-</span>}
-                                  {changeNum > 0 ? '+' : ''}{change}%
-                              </div>
-                          </div>
-                      );
-                  })}
-              </div>
+              
+              {sections.map((section, sIdx) => (
+                  <div key={sIdx} className="flex flex-col gap-3">
+                      <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2 px-2 md:px-0">
+                          <Bookmark className="w-5 h-5 text-indigo-500" />
+                          {section.title}
+                          {section.sheets.length > 0 && (
+                              <span className="text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full ml-auto">
+                                  資料來源: {section.sheets.join(', ')}
+                              </span>
+                          )}
+                      </h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+                          {section.stocks.map((row, idx) => renderCard(row, idx))}
+                      </div>
+                  </div>
+              ))}
           </div>
       );
   };
@@ -1779,9 +1926,9 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                {selectedSheet === '美股早報' ? (
+                {selectedSheet === '美股早報' || selectedSheet === '台股盤後資料AI分析' ? (
                      <div className="flex-1 overflow-auto custom-scrollbar -mx-4 sm:-mx-6 -mb-4 sm:-mb-6">
-                        {renderMorningReport()}
+                        {renderDashboardView()}
                      </div>
                 ) : (
                 <>
@@ -2221,26 +2368,33 @@ export default function App() {
                      ) : null;
                   })()}
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                     {columns.map((col, idx) => {
-                        const cellValue = selectedRowInfo[col];
-                        const formattedValue = formatCellValue(cellValue);
-                        const isNumericStr = !isNaN(Number(cellValue)) && cellValue !== '' && cellValue !== null;
-                        const isNegative = isNumericStr && Number(cellValue) < 0;
-                        const isPositive = isNumericStr && Number(cellValue) > 0;
-                        
-                        return (
-                           <div key={idx} className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col gap-1">
-                              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{col}</span>
-                              <span className={`text-base font-medium break-words ${
-                                 isNegative ? 'text-rose-600 dark:text-rose-400' : 
-                                 isPositive ? 'text-emerald-600 dark:text-emerald-400' : 
-                                 'text-gray-900 dark:text-gray-50'
-                              }`}>
-                                 {formattedValue || '-'}
-                              </span>
-                           </div>
-                        );
-                     })}
+                     {(() => {
+                        const isDashboardView = selectedSheet === '台股盤後資料AI分析' || selectedSheet === '美股早報';
+                        const displayCols = isDashboardView 
+                           ? Object.keys(selectedRowInfo).filter(k => k !== '名稱' && k !== '代碼' && k !== '證券代號' && !k.startsWith('_'))
+                           : columns;
+
+                        return displayCols.map((col, idx) => {
+                           const cellValue = selectedRowInfo[col];
+                           const formattedValue = formatCellValue(cellValue);
+                           const isNumericStr = !isNaN(Number(cellValue)) && cellValue !== '' && cellValue !== null;
+                           const isNegative = isNumericStr && Number(cellValue) < 0;
+                           const isPositive = isNumericStr && Number(cellValue) > 0;
+                           
+                           return (
+                              <div key={idx} className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col gap-1">
+                                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{col === '備份日期' ? '日期' : col}</span>
+                                 <span className={`text-base font-medium break-words ${
+                                    isNegative ? 'text-rose-600 dark:text-rose-400' : 
+                                    isPositive ? 'text-emerald-600 dark:text-emerald-400' : 
+                                    'text-gray-900 dark:text-gray-50'
+                                 }`}>
+                                    {formattedValue || '-'}
+                                 </span>
+                              </div>
+                           );
+                        });
+                     })()}
                   </div>
                </div>
                
