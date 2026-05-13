@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Papa from 'papaparse';
-import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown, Heart, LogOut, User, Columns, X, Download, Bookmark, BookmarkPlus, Trash2, BarChart3, PieChart, Building, Sun, Moon, ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
+import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown, Heart, LogOut, User, Columns, X, Download, Bookmark, BookmarkPlus, Trash2, BarChart3, PieChart, Building, Sun, Moon, ChevronDown, ChevronUp, GripVertical, TrendingUp, TrendingDown } from 'lucide-react';
 import { db, auth } from './lib/firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User as FirebaseUser } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc, getDocs, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, LineChart as RechartsLineChart, Line } from 'recharts';
+import Markdown from 'react-markdown';
 
 enum OperationType {
   CREATE = 'create',
@@ -1375,6 +1376,51 @@ export default function App() {
      document.body.removeChild(link);
   };
 
+  const renderMorningReport = () => {
+      const aiReportColumn = columns.find(c => c.includes('AI') && c.includes('總結'));
+      const aiReportText = data[0]?.[aiReportColumn as string] || '';
+      const dateText = data[0]?.['日期'] || '';
+
+      return (
+          <div className="flex flex-col gap-6 w-full p-2 md:p-6 pb-20 animate-in fade-in duration-500">
+              {aiReportText && (
+                  <div className="bg-white dark:bg-gray-900 rounded-xl p-5 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
+                          <Sun className="w-6 h-6 text-orange-500" />
+                          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 tracking-tight">AI 晨間總結</h2>
+                          {dateText && <span className="ml-auto text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{dateText}</span>}
+                      </div>
+                      <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none prose-indigo markdown-body leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                          <Markdown>{aiReportText}</Markdown>
+                      </div>
+                  </div>
+              )}
+              <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+                  {sortedData.map((row, idx) => {
+                      const name = row['名稱'] || row['代碼'] || '未命名';
+                      const price = row['收盤價'];
+                      const change = row['漲跌幅(%)'] || row['漲跌幅'];
+                      const changeNum = parseFloat(change || '0');
+                      const isPositive = changeNum > 0;
+                      const isNegative = changeNum < 0;
+                      if (!price && !change) return null;
+                      
+                      return (
+                          <div key={idx} onClick={() => setSelectedRowInfo(row)} className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center text-center hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800 transition-all cursor-pointer animate-in zoom-in-95 duration-500" style={{ animationDelay: `${Math.min(idx * 30, 500)}ms` }}>
+                              <div className="font-medium text-gray-500 dark:text-gray-400 mb-1.5 truncate w-full px-1 text-sm md:text-base" title={name}>{name}</div>
+                              <div className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-50 mb-2 truncate max-w-full px-1" title={price}>{price}</div>
+                              <div className={`flex items-center justify-center gap-1 px-2.5 py-1 rounded-full font-bold text-xs md:text-sm ${isPositive ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' : isNegative ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}>
+                                  {isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : isNegative ? <TrendingDown className="w-3.5 h-3.5" /> : <span className="w-3.5 h-3.5 line-clamp-1 block leading-[14px] text-center">-</span>}
+                                  {changeNum > 0 ? '+' : ''}{change}%
+                              </div>
+                          </div>
+                      );
+                  })}
+              </div>
+          </div>
+      );
+  };
+
   if (loadingSheets && Object.keys(allSheetsData).length === 0 && !error) {
     return (
       <div className="flex h-[100dvh] w-full bg-indigo-50/30 flex-col items-center justify-center font-sans animate-in fade-in duration-500">
@@ -1733,6 +1779,12 @@ export default function App() {
                     </div>
                   </div>
                 )}
+                {selectedSheet === '美股早報' ? (
+                     <div className="flex-1 overflow-auto custom-scrollbar -mx-4 sm:-mx-6 -mb-4 sm:-mb-6">
+                        {renderMorningReport()}
+                     </div>
+                ) : (
+                <>
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 shrink-0">
                     <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm col-span-1">
                         <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">總資料筆數</h3>
@@ -2024,6 +2076,8 @@ export default function App() {
                      </div>
                   )}
                 </div>
+                </>
+                )}
               </>
             )}
             
