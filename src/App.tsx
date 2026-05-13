@@ -1397,7 +1397,7 @@ export default function App() {
       let sections: {title: string, sheets: string[], stocks: any[]}[] = [];
 
       if (isUS) {
-          const cardsData = sortedData.filter(row => row['收盤價'] || row['成交價'] || row['最新股價'] || row['漲跌幅(%)'] || row['漲跌幅']);
+          const cardsData = sortedData.filter(row => row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)']);
           if (cardsData.length > 0) {
               sections.push({ title: '美股行情', sheets: [], stocks: cardsData });
           }
@@ -1411,7 +1411,7 @@ export default function App() {
                   sheetData.forEach(row => {
                       const symbol = getSymbol(row);
                       if (symbol) {
-                          const hasPriceData = row['收盤價'] || row['成交價'] || row['最新股價'] || row['漲跌幅(%)'] || row['漲跌幅'];
+                          const hasPriceData = row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)'];
                           if (!allStocksMap.has(symbol) || hasPriceData) {
                               allStocksMap.set(symbol, row);
                           }
@@ -1421,7 +1421,10 @@ export default function App() {
 
               const getStockRow = (symbol: string, name: string, preferredSheets: string[]) => {
                   for (const sheetName of preferredSheets) {
-                      const targetSheet = allSheetsData[sheetName];
+                      let targetSheet = allSheetsData[sheetName];
+                      if (!targetSheet) {
+                          targetSheet = allSheetsData[sheetName.replace(/工作表$/, '')];
+                      }
                       if (targetSheet) {
                           const found = targetSheet.find(r => getSymbol(r) === symbol);
                           if (found) return { ...found, '代碼': symbol, '名稱': name };
@@ -1441,7 +1444,7 @@ export default function App() {
                   const name = getName(row);
                   const desc = row['說明'];
                   const sourceStr = row['來源檔案名稱'] || '';
-                  const sourceSheets = sourceStr ? sourceStr.split(',').map((s: string) => s.trim()) : [];
+                  const sourceSheets = sourceStr ? sourceStr.split(/[,、]/).map((s: string) => s.trim()) : [];
 
                   if (category === '資金流向' || category?.includes('資金流向')) {
                       if (desc) {
@@ -1485,7 +1488,7 @@ export default function App() {
                   sheetData.forEach(row => {
                       const symbol = getSymbol(row);
                       if (symbol) {
-                          const hasPriceData = row['收盤價'] || row['成交價'] || row['最新股價'] || row['漲跌幅(%)'] || row['漲跌幅'];
+                          const hasPriceData = row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)'];
                           if (!allStocksMap.has(symbol) || hasPriceData) {
                               allStocksMap.set(symbol, row);
                           }
