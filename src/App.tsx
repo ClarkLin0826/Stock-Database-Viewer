@@ -332,7 +332,7 @@ export default function App() {
      return arr.map(row => {
         const newRow: any = {};
         for (const key in row) {
-            let newKey = key;
+            let newKey = key.trim();
             if (key === '備份日期' || key.trim() === '備份日期') {
                 newKey = '日期';
             }
@@ -1431,8 +1431,18 @@ export default function App() {
                       const symbol = getSymbol(row);
                       if (symbol) {
                           const hasPriceData = row['目前股價'] || row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'] || row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)'];
-                          if (!allStocksMap.has(symbol) || hasPriceData) {
-                              allStocksMap.set(symbol, row);
+                          if (!allStocksMap.has(symbol)) {
+                              allStocksMap.set(symbol, { ...row });
+                          } else {
+                              const existing = allStocksMap.get(symbol);
+                              const newEntry = { ...existing };
+                              // Only overwrite with non-empty values
+                              for (const key in row) {
+                                  if (row[key] !== '' && row[key] !== null && row[key] !== undefined) {
+                                      newEntry[key] = row[key];
+                                  }
+                              }
+                              allStocksMap.set(symbol, newEntry);
                           }
                       }
                   });
@@ -1512,8 +1522,18 @@ export default function App() {
                       const symbol = getSymbol(row);
                       if (symbol) {
                           const hasPriceData = row['目前股價'] || row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'] || row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)'];
-                          if (!allStocksMap.has(symbol) || hasPriceData) {
-                              allStocksMap.set(symbol, row);
+                          if (!allStocksMap.has(symbol)) {
+                              allStocksMap.set(symbol, { ...row });
+                          } else {
+                              const existing = allStocksMap.get(symbol);
+                              const newEntry = { ...existing };
+                              // Only overwrite with non-empty values
+                              for (const key in row) {
+                                  if (row[key] !== '' && row[key] !== null && row[key] !== undefined) {
+                                      newEntry[key] = row[key];
+                                  }
+                              }
+                              allStocksMap.set(symbol, newEntry);
                           }
                       }
                   });
@@ -1594,7 +1614,7 @@ export default function App() {
           const symbol = getSymbol(row);
           const name = getName(row) || symbol || '未命名';
           const price = row['目前股價'] || row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'];
-          const change = row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)'];
+                    const change = row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)'];
           const desc = row['說明'];
           const changeNum = parseFloat(change || '0');
           const isPositive = changeNum > 0;
