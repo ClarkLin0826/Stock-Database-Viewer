@@ -145,6 +145,11 @@ export default function App() {
   const [lastFetchTime, setLastFetchTime] = useState<Date | null>(null);
 
   // Month filter state
+  const [selectedDashboardDate, setSelectedDashboardDate] = useState<string>("NEWEST");
+  
+  useEffect(() => {
+      setSelectedDashboardDate("NEWEST");
+  }, [selectedSheet]);
   const [selectedMonth, setSelectedMonth] = useState<string>("ALL");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [selectedMotive, setSelectedMotive] = useState<string>("ALL");
@@ -852,6 +857,29 @@ export default function App() {
     });
   };
 
+  const availableDashboardDates = useMemo(() => {
+     if (selectedSheet !== '台股盤後資料AI分析' && selectedSheet !== '美股早報') return [];
+     const sheetData = allSheetsData[selectedSheet] || [];
+     if (sheetData.length === 0) return [];
+     
+     const dates = new Set<string>();
+     sheetData.forEach(row => {
+         const name = row['名稱'] || row['公司名稱'] || row['股票名稱'] || row['證券名稱'] || '';
+         if (selectedSheet === '美股早報' && (name === '比特幣' || name === '以太幣')) {
+             return;
+         }
+
+         let dateText = row['備份日期'] || row['日期'] || '';
+         if (dateText && typeof dateText === 'string' && dateText.includes(' ')) {
+             dateText = dateText.split(' ')[0];
+         }
+         if (dateText) {
+             dates.add(dateText);
+         }
+     });
+     return Array.from(dates).sort((a, b) => b.localeCompare(a));
+  }, [selectedSheet, allSheetsData]);
+
   const hasDateSheet = selectedSheet === 'MULTI_FILTER' 
     ? selectedIntersectSheets.some(s => ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(s))
     : ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(selectedSheet || '');
@@ -1390,9 +1418,73 @@ export default function App() {
 
   const renderDashboardView = () => {
       const isUS = selectedSheet === '美股早報';
+      
+      const targetDate = selectedDashboardDate === 'NEWEST' ? availableDashboardDates[0] : selectedDashboardDate;
+      
+      let dashboardData = data;
+      let dashboardSortedData = sortedData;
+      
+      if (targetDate) {
+          const targetPlusOne = new Date(targetDate);
+          targetPlusOne.setDate(targetPlusOne.getDate() + 1);
+          const targetPlusOneStr = targetPlusOne.toISOString().split('T')[0];
+
+          const filteredData = data.filter(row => {
+              let rowDate = row['備份日期'] || row['日期'] || '';
+              if (rowDate && typeof rowDate === 'string' && rowDate.includes(' ')) {
+                  rowDate = rowDate.split(' ')[0];
+              }
+              const name = row['名稱'] || row['公司名稱'] || row['股票名稱'] || row['證券名稱'] || '';
+              if (selectedSheet === '美股早報' && (name === '比特幣' || name === '以太幣')) {
+                  return rowDate === targetDate || rowDate === targetPlusOneStr;
+              }
+              return rowDate === targetDate;
+          });
+
+          const filteredSortedData = sortedData.filter(row => {
+              let rowDate = row['備份日期'] || row['日期'] || '';
+              if (rowDate && typeof rowDate === 'string' && rowDate.includes(' ')) {
+                  rowDate = rowDate.split(' ')[0];
+              }
+              const name = row['名稱'] || row['公司名稱'] || row['股票名稱'] || row['證券名稱'] || '';
+              if (selectedSheet === '美股早報' && (name === '比特幣' || name === '以太幣')) {
+                  return rowDate === targetDate || rowDate === targetPlusOneStr;
+              }
+              return rowDate === targetDate;
+          });
+
+          // Deduplicate crypto, keeping the latest date
+          const deduplicateCrypto = (arr: any[]) => {
+              const cryptoMap = new Map();
+              const result = [];
+              for (const row of arr) {
+                  const name = row['名稱'] || row['公司名稱'] || row['股票名稱'] || row['證券名稱'] || '';
+                  if (selectedSheet === '美股早報' && (name === '比特幣' || name === '以太幣')) {
+                      let rowDate = row['備份日期'] || row['日期'] || '';
+                      if (rowDate && typeof rowDate === 'string' && rowDate.includes(' ')) {
+                          rowDate = rowDate.split(' ')[0];
+                      }
+                      const existing = cryptoMap.get(name);
+                      if (!existing || rowDate > existing.date) {
+                          cryptoMap.set(name, { date: rowDate, row });
+                      }
+                  } else {
+                      result.push(row);
+                  }
+              }
+              for (const item of cryptoMap.values()) {
+                  result.push(item.row);
+              }
+              return result;
+          };
+
+          dashboardData = deduplicateCrypto(filteredData);
+          dashboardSortedData = deduplicateCrypto(filteredSortedData);
+      }
+      
       const aiReportColumn = columns.find(c => c.includes('AI') && (c.includes('總結') || c.includes('報告') || c.includes('結論')));
-      let aiReportText = data[0]?.[aiReportColumn as string] || '';
-      let dateText = data[0]?.['備份日期'] || data[0]?.['日期'] || '';
+      let aiReportText = dashboardData[0]?.[aiReportColumn as string] || '';
+      let dateText = dashboardData[0]?.['備份日期'] || dashboardData[0]?.['日期'] || '';
       
       if (dateText && typeof dateText === 'string' && dateText.includes(' ')) {
           dateText = dateText.split(' ')[0];
@@ -1405,7 +1497,7 @@ export default function App() {
       let sections: {title: string, sheets: string[], stocks: any[]}[] = [];
 
       if (isUS) {
-          let cardsData = sortedData.filter(row => row['目前股價'] || row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'] || row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)']);
+          let cardsData = dashboardSortedData.filter(row => row['目前股價'] || row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'] || row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)']);
           
           const getCategoryOrder = (name) => {
               if (!name) return 99;
@@ -1474,7 +1566,7 @@ export default function App() {
               
               let newFormatText = '';
 
-              sortedData.forEach(row => {
+              dashboardSortedData.forEach(row => {
                   const category = row['潛力股點評'];
                   const symbol = getSymbol(row);
                   const name = getName(row);
@@ -1676,7 +1768,21 @@ export default function App() {
                           <div className="flex items-center gap-2">
                               <Icon className={`w-6 h-6 ${isUS ? 'text-orange-500' : 'text-indigo-400'}`} />
                               <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 tracking-tight">{title}</h2>
-                              {dateText && <span className="ml-auto text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{dateText}</span>}
+                              <div className="ml-auto flex items-center gap-2">
+                                  {availableDashboardDates.length > 0 && (
+                                      <select
+                                          value={selectedDashboardDate}
+                                          onChange={(e) => setSelectedDashboardDate(e.target.value)}
+                                          className="block py-1 px-3 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner"
+                                      >
+                                          <option value="NEWEST">最新</option>
+                                          {availableDashboardDates.map(date => (
+                                              <option key={date} value={date}>{date}</option>
+                                          ))}
+                                      </select>
+                                  )}
+                                  {dateText && <span className="hidden sm:inline-block text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{dateText}</span>}
+                              </div>
                           </div>
                           <div className="text-sm font-medium text-gray-500 dark:text-gray-400 ml-8">
                               {subtitle}
