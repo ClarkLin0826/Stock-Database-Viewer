@@ -1398,7 +1398,25 @@ export default function App() {
       let sections: {title: string, sheets: string[], stocks: any[]}[] = [];
 
       if (isUS) {
-          const cardsData = sortedData.filter(row => row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)']);
+          let cardsData = sortedData.filter(row => row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)']);
+          
+          const getCategoryOrder = (name) => {
+              if (!name) return 99;
+              if (/(道瓊|S&P 500|標普|那斯達克|費城半導體|費半|羅素|VIX|殖利率|指數)/i.test(name)) return 1;
+              if (/期貨/i.test(name)) return 2;
+              if (/(ETF|類股)/i.test(name)) return 3;
+              if (/(比特幣|以太幣|加密貨幣|虛擬貨幣|BTC|ETH)/i.test(name)) return 5;
+              return 4;
+          };
+
+          cardsData = [...cardsData].sort((a, b) => {
+              const nameA = a['名稱'] || String(a['代碼'] || a['代號'] || '') || '';
+              const nameB = b['名稱'] || String(b['代碼'] || b['代號'] || '') || '';
+              const orderA = getCategoryOrder(nameA);
+              const orderB = getCategoryOrder(nameB);
+              return orderA - orderB;
+          });
+
           if (cardsData.length > 0) {
               sections.push({ title: '美股行情', sheets: [], stocks: cardsData });
           }
