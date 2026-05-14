@@ -25,17 +25,16 @@ export const InstitutionalRanking: React.FC<InstitutionalRankingProps> = ({ allS
 
   const priceChangeMap = useMemo(() => {
     const map = new Map<string, string | number>();
-    const allRows = Object.values(allSheetsData).flat();
-    for (const row of allRows) {
+    for (const row of data) {
         const sym = getSymbol(row);
         if (!sym) continue;
-        const pct = row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)'] || row['漲跌幅'];
+        const pct = row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)'];
         if (pct !== undefined && pct !== null && pct !== '' && !map.has(sym)) {
             map.set(sym, pct);
         }
     }
     return map;
-  }, [allSheetsData, getSymbol]);
+  }, [data, getSymbol]);
 
   const getRankings = (columnKeys: string[], isBuy: boolean) => {
     // Find the first column key that actually exists in our data
