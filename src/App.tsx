@@ -1872,8 +1872,7 @@ export default function App() {
           <div className="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/60 rounded-3xl flex items-center justify-center mb-8 shadow-sm">
             <Table2 className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-50 mb-3 tracking-tight">股票資料庫</h2>
-          <p className="text-gray-500 dark:text-gray-400 text-base mb-8 text-center max-w-sm">正在從 Google 試算表同步資料，請稍候...</p>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-50 mb-8 tracking-tight">股票資料庫</h2>
           <div className="flex gap-2.5 items-center text-indigo-600 dark:text-indigo-400 font-medium bg-indigo-50 dark:bg-indigo-900/40 px-5 py-2.5 rounded-full shadow-sm">
              <RefreshCcw className="w-5 h-5 animate-spin" />
              <span className="text-sm">載入中...</span>
