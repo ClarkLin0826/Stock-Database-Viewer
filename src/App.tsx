@@ -2089,7 +2089,13 @@ export default function App() {
                   <span className="hidden lg:inline ml-1.5">匯出 CSV</span>
                </button>
                <button
-                 onClick={() => selectedSheet && selectedSheet !== 'MULTI_FILTER' ? loadData(selectedSheet, true) : fetchSheets()}
+                 onClick={() => {
+                  if (['MULTI_FILTER', 'FAVORITES', 'INSTITUTIONAL_RANKING'].includes(selectedSheet || '')) {
+                     fetchSheets();
+                  } else if (selectedSheet) {
+                     loadData(selectedSheet, true);
+                  }
+                }}
                  disabled={loading}
                  className="flex items-center justify-center p-2 lg:px-3 lg:py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50"
                  title="重新整理"

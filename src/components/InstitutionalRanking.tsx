@@ -37,17 +37,24 @@ export const InstitutionalRanking: React.FC<InstitutionalRankingProps> = ({ allS
     return map;
   }, [allSheetsData, getSymbol]);
 
-  const getRankings = (columnKey: string, isBuy: boolean) => {
-    const validRows = data.filter(row => parseVal(row[columnKey]) !== 0);
+  const getRankings = (columnKeys: string[], isBuy: boolean) => {
+    // Find the first column key that actually exists in our data
+    let actualColumn = columnKeys[0];
+    if (data.length > 0) {
+      const found = columnKeys.find(key => data[0][key] !== undefined);
+      if (found) actualColumn = found;
+    }
+
+    const validRows = data.filter(row => parseVal(row[actualColumn]) !== 0);
     const sorted = [...validRows].sort((a, b) => {
-      const valA = parseVal(a[columnKey]);
-      const valB = parseVal(b[columnKey]);
+      const valA = parseVal(a[actualColumn]);
+      const valB = parseVal(b[actualColumn]);
       return isBuy ? valB - valA : valA - valB;
     });
     
     // Filter to positive for buy, negative for sell
     const filtered = sorted.filter(row => {
-        const val = parseVal(row[columnKey]);
+        const val = parseVal(row[actualColumn]);
         return isBuy ? val > 0 : val < 0;
     });
 
@@ -57,18 +64,18 @@ export const InstitutionalRanking: React.FC<InstitutionalRankingProps> = ({ allS
            symbol,
            name: row['證券名稱'],
            market: row['市場別'],
-           value: Math.round(parseVal(row[columnKey]) / 1000),
+           value: Math.round(parseVal(row[actualColumn]) / 1000),
            priceChange: priceChangeMap.get(symbol) || '-'
         };
     });
   };
 
   const categories = [
-    { title: '三大法人', column: '三大法人買賣超' },
-    { title: '外資', column: '外資買賣超' },
-    { title: '投信', column: '投信買賣超' },
-    { title: '自營自行', column: '自營自行買賣超' },
-    { title: '自營避險', column: '自營避險買賣超' }
+    { title: '三大法人', columns: ['三大法人買賣超股數', '三大法人買賣超'] },
+    { title: '外資', columns: ['外陸資買賣超股數(不含外資自營商)', '外資買賣超'] },
+    { title: '投信', columns: ['投信買賣超股數', '投信買賣超'] },
+    { title: '自營自行', columns: ['自營商買賣超股數(自行買賣)', '自營自行買賣超'] },
+    { title: '自營避險', columns: ['自營商買賣超股數(避險)', '自營避險買賣超'] }
   ];
 
   const formatNumber = (num: number) => {
@@ -112,8 +119,8 @@ export const InstitutionalRanking: React.FC<InstitutionalRankingProps> = ({ allS
 
       <div className="space-y-12">
          {categories.map((cat, idx) => {
-            const buys = getRankings(cat.column, true);
-            const sells = getRankings(cat.column, false);
+            const buys = getRankings(cat.columns, true);
+            const sells = getRankings(cat.columns, false);
 
             return (
                <div key={cat.title} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
