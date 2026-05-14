@@ -110,11 +110,16 @@ export const InstitutionalRanking: React.FC<InstitutionalRankingProps> = ({ allS
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">資料來源：上市櫃三大法人買賣超</p>
         </div>
-        {updateDate && (
-          <div className="text-sm bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-md text-gray-600 dark:text-gray-300">
-            更新日期：{updateDate}
+        <div className="flex flex-col items-end gap-2 text-right">
+          {updateDate && (
+            <div className="text-sm bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-md text-gray-600 dark:text-gray-300">
+              更新日期：{updateDate}
+            </div>
+          )}
+          <div className="text-xs text-gray-500 dark:text-gray-400 px-1">
+            * 每天17:00更新
           </div>
-        )}
+        </div>
       </div>
 
       <div className="space-y-12">
