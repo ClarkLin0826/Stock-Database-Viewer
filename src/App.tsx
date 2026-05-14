@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Papa from 'papaparse';
-import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown, Heart, LogOut, User, Columns, X, Download, Bookmark, BookmarkPlus, Trash2, BarChart3, PieChart, Building, Sun, Moon, ChevronDown, ChevronUp, GripVertical, TrendingUp, TrendingDown } from 'lucide-react';
+import { AlertCircle, RefreshCcw, Table2, Search, Code, Copy, CheckCircle2, ChevronRight, Menu, LayoutTemplate, LineChart, ExternalLink, FileText, Filter, Check, ArrowUp, ArrowDown, ArrowUpDown, Heart, LogOut, User, Columns, X, Download, Bookmark, BookmarkPlus, Trash2, BarChart3, PieChart, Building, Sun, Moon, ChevronDown, ChevronUp, GripVertical, TrendingUp, TrendingDown, Trophy } from 'lucide-react';
 import { db, auth } from './lib/firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User as FirebaseUser } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc, getDocs, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, LineChart as RechartsLineChart, Line } from 'recharts';
 import Markdown from 'react-markdown';
+import { InstitutionalRanking } from './components/InstitutionalRanking';
 
 enum OperationType {
   CREATE = 'create',
@@ -601,7 +602,7 @@ export default function App() {
        setColumns(Array.from(allKeys));
        return;
     }
-    if (selectedSheet && selectedSheet !== 'MULTI_FILTER' && !needsGasUpdate) {
+    if (selectedSheet && selectedSheet !== 'MULTI_FILTER' && selectedSheet !== 'INSTITUTIONAL_RANKING' && !needsGasUpdate) {
       loadData(selectedSheet);
     }
   }, [selectedSheet, needsGasUpdate, favorites, currentUser]);
@@ -1097,7 +1098,7 @@ export default function App() {
 
   // 如果選擇的工作表被隱藏了，自動切換到第一個可見的工作表
   useEffect(() => {
-    if (selectedSheet && selectedSheet !== 'MULTI_FILTER' && selectedSheet !== 'FAVORITES') {
+    if (selectedSheet && selectedSheet !== 'MULTI_FILTER' && selectedSheet !== 'FAVORITES' && selectedSheet !== 'INSTITUTIONAL_RANKING') {
       if (visibleSheets.length > 0 && !visibleSheets.includes(selectedSheet)) {
         if (allSheetsData[selectedSheet] && allSheetsData[selectedSheet].length === 0) {
            setSelectedSheet(visibleSheets[0]);
@@ -1936,6 +1937,30 @@ export default function App() {
              </button>
           </div>
 
+          <div className="mb-4">
+             <button
+               onClick={() => {
+                 if (selectedSheet !== 'INSTITUTIONAL_RANKING') {
+                    setSelectedSheet('INSTITUTIONAL_RANKING');
+                    if (window.innerWidth < 768) setIsSidebarOpen(false);
+                 }
+               }}
+               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
+                 selectedSheet === 'INSTITUTIONAL_RANKING'
+                   ? "bg-yellow-600 text-white shadow-md shadow-yellow-200 font-medium"
+                   : "text-gray-600 dark:text-gray-300 hover:bg-yellow-50 hover:text-yellow-600"
+               }`}
+             >
+               <div className="flex items-center gap-2">
+                 <div className={`p-1 rounded-md ${selectedSheet === 'INSTITUTIONAL_RANKING' ? 'bg-yellow-50 dark:bg-yellow-900/400 text-white' : 'bg-yellow-50 dark:bg-yellow-900/40 text-yellow-500 dark:text-yellow-400'}`}>
+                    <Trophy className="w-4 h-4" />
+                 </div>
+                 <span className="truncate">法人買賣超排行</span>
+               </div>
+               {selectedSheet === 'INSTITUTIONAL_RANKING' && <ChevronRight className="w-4 h-4 text-yellow-200" />}
+             </button>
+          </div>
+
           <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 px-2">工作表清單</h3>
           
           <ul className="space-y-1">
@@ -2004,7 +2029,7 @@ export default function App() {
                <Menu className="w-5 h-5" />
             </button>
             <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-               {selectedSheet === 'MULTI_FILTER' ? "多重條件交集" : (selectedSheet || "載入中...")}
+               {selectedSheet === 'MULTI_FILTER' ? "多重條件交集" : selectedSheet === 'INSTITUTIONAL_RANKING' ? "法人買賣超排行" : (selectedSheet || "載入中...")}
             </h2>
           </div>
           
@@ -2102,6 +2127,10 @@ export default function App() {
                    <AlertCircle className="w-5 h-5" /> 取資料時發生錯誤
                 </h3>
                 <p className="text-red-700 mt-2">{error}</p>
+              </div>
+            ) : selectedSheet === 'INSTITUTIONAL_RANKING' ? (
+              <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-950 rounded-xl relative border border-gray-200 dark:border-gray-800 shadow-sm max-h-full min-h-0">
+                 <InstitutionalRanking allSheetsData={allSheetsData} getSymbol={getSymbol} />
               </div>
             ) : (
               <>
