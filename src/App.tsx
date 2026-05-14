@@ -700,20 +700,34 @@ export default function App() {
            return map;
        });
 
+       const normalizeKey = (k: string) => {
+           if (['代碼', '代號', '現股代號', '公司代號'].includes(k)) return '證券代號';
+           if (['名稱', '股票名稱', '證券名稱'].includes(k)) return '公司名稱';
+           return k;
+       };
+
        const intersected = baseData.filter(row => {
           const id = getSymbol(row);
           if (!id) return false;
           return otherSheetsMaps.every(map => map.has(id));
        }).map(row => {
           const id = getSymbol(row);
-          let mergedRow = { ...row };
+          let mergedRawRow = { ...row };
           otherSheetsMaps.forEach(map => {
               const matchingRow = map.get(id!);
               if (matchingRow) {
-                  mergedRow = { ...mergedRow, ...matchingRow };
+                  mergedRawRow = { ...mergedRawRow, ...matchingRow };
               }
           });
-          return mergedRow;
+          
+          let normalizedRow: any = {};
+          Object.keys(mergedRawRow).forEach(k => {
+              const standardKey = normalizeKey(k);
+              if (!normalizedRow[standardKey] || (mergedRawRow[k] && !normalizedRow[standardKey])) {
+                 normalizedRow[standardKey] = mergedRawRow[k];
+              }
+          });
+          return normalizedRow;
        });
        
        let mergedColumns: string[] = [];
@@ -722,9 +736,10 @@ export default function App() {
            const addCols = (rowObj: any) => {
                if(rowObj) {
                    Object.keys(rowObj).forEach(k => {
-                       if(!colSet.has(k)) {
-                           colSet.add(k);
-                           mergedColumns.push(k);
+                       const standardKey = normalizeKey(k);
+                       if(!colSet.has(standardKey)) {
+                           colSet.add(standardKey);
+                           mergedColumns.push(standardKey);
                        }
                    });
                }
@@ -734,6 +749,17 @@ export default function App() {
            otherSheetsData.forEach(sData => {
                addCols(sData.length > 0 ? sData[0] : null);
            });
+           
+           const reorderedColumns: string[] = [];
+           if (colSet.has('證券代號')) reorderedColumns.push('證券代號');
+           if (colSet.has('公司名稱')) reorderedColumns.push('公司名稱');
+           
+           mergedColumns.forEach(k => {
+               if (k !== '證券代號' && k !== '公司名稱') {
+                   reorderedColumns.push(k);
+               }
+           });
+           mergedColumns = reorderedColumns;
        }
 
        setData(intersected);
