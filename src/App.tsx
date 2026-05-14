@@ -618,7 +618,7 @@ export default function App() {
        
        const getFilteredSheetData = (sheetName: string) => {
            let sData = allSheetsData[sheetName] || [];
-           if (selectedMonth !== "ALL" && ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(sheetName)) {
+           if (selectedMonth !== "ALL" && ['庫藏股', '財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(sheetName)) {
                const sheetCols = Object.keys(sData[0] || {});
                const targetCol = sheetCols.find(c => DATE_COLUMNS.includes(c)) || sheetCols.find(c => c.includes('日期') || c.includes('月'));
                if (targetCol) {
@@ -684,7 +684,7 @@ export default function App() {
            return sData;
        };
 
-       const dateSheetName = selectedIntersectSheets.find(s => ['財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(s));
+       const dateSheetName = selectedIntersectSheets.find(s => ['庫藏股', '財報_財務報告', '轉換公司債', '達公布注意交易資訊標準', '法說會_法人說明會'].includes(s));
        
        const baseSheet = dateSheetName || selectedIntersectSheets[0];
        const baseData = getFilteredSheetData(baseSheet);
@@ -739,7 +739,7 @@ export default function App() {
        setData(intersected);
        setColumns(mergedColumns);
     }
-  }, [selectedSheet, selectedIntersectSheets, allSheetsData, selectedMonth, selectedStatus, selectedMotive]);
+  }, [selectedSheet, selectedIntersectSheets, allSheetsData, selectedMonth, selectedStatus, selectedMotive, selectedETF, selectedExpiry]);
 
   const toggleIntersectSheet = (sheet: string) => {
     setSelectedIntersectSheets(prev => {
