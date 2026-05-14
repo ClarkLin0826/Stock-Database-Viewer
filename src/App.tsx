@@ -264,6 +264,29 @@ export default function App() {
     '投信連買篩選': '投信至少連續買超三天，股本5~50億的股票',
     '主動型ETF每日差異': '全體曝險排行Top50'
   };
+
+  const SHEET_UPDATE_TIMES: Record<string, string> = {
+    '上市價量齊揚': '交易日17:00更新',
+    '上櫃價量齊揚': '交易日17:00更新',
+    'CB可轉債雷達': '交易日17:00更新',
+    '上市櫃低於淨值殖利率大於5': '交易日17:30更新',
+    '三率三升篩選': '交易日17:30更新',
+    'HVDC監控': '交易日18:30更新',
+    'CoPoS監控': '交易日18:30更新',
+    '投信連買篩選': '交易日21:30更新',
+    '上市_值得注意': '交易日21:30更新',
+    '上櫃_值得注意': '交易日21:30更新',
+    '主動型ETF每日差異': '交易日21:30更新',
+    '主動型ETF當日持股工作表': '交易日21:30更新',
+    '台股盤後資料AI分析': '交易日晚上22:30更新',
+    '轉換公司債': '交易日隔天凌晨1:30更新',
+    '達公布注意交易資訊標準': '交易日隔天凌晨1:30更新',
+    '法說會_法人說明會': '交易日隔天凌晨1:30更新',
+    '上市櫃公司清單_含產業': '交易日隔天凌晨1:30更新',
+    '庫藏股': '交易日隔天凌晨1:30更新',
+    '美股早報': '早上6:30更新昨天晚上美股資訊',
+  };
+
   const [needsGasUpdate, setNeedsGasUpdate] = useState(false);
 
   // Drag and Drop state
@@ -1519,7 +1542,6 @@ export default function App() {
 
       const title = isUS ? 'AI 晨間總結' : 'AI 盤後總結';
       const Icon = isUS ? Sun : Moon;
-      const subtitle = isUS ? '每天早上6:30更新' : '每天晚上22:30更新';
 
       let sections: {title: string, sheets: string[], stocks: any[]}[] = [];
 
@@ -1814,9 +1836,6 @@ export default function App() {
                                   {dateText && <span className="hidden sm:inline-block text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{dateText}</span>}
                               </div>
                           </div>
-                          <div className="text-sm font-medium text-gray-500 dark:text-gray-400 ml-8">
-                              {subtitle}
-                          </div>
                       </div>
                       <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none prose-indigo markdown-body leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                           <Markdown>{aiReportText}</Markdown>
@@ -1904,7 +1923,7 @@ export default function App() {
                }`}
              >
                <div className="flex items-center gap-2">
-                 <div className={`p-1 rounded-md ${selectedSheet === 'MULTI_FILTER' ? 'bg-white/20 text-white' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-500 dark:text-indigo-400'}`}>
+                 <div className={`p-1 rounded-md ${selectedSheet === 'MULTI_FILTER' ? 'bg-white text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400 shadow-sm' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-500 dark:text-indigo-400'}`}>
                     <Filter className="w-4 h-4" />
                  </div>
                  <span className="truncate">多重條件交集</span>
@@ -1928,7 +1947,7 @@ export default function App() {
                }`}
              >
                <div className="flex items-center gap-2">
-                 <div className={`p-1 rounded-md ${selectedSheet === 'FAVORITES' ? 'bg-white/20 text-white' : 'bg-pink-50 dark:bg-pink-900/40 text-pink-500 dark:text-pink-400'}`}>
+                 <div className={`p-1 rounded-md ${selectedSheet === 'FAVORITES' ? 'bg-white text-pink-600 dark:bg-pink-900/40 dark:text-pink-400 shadow-sm' : 'bg-pink-50 dark:bg-pink-900/40 text-pink-500 dark:text-pink-400'}`}>
                     <Heart className="w-4 h-4" />
                  </div>
                  <span className="truncate">自選股</span>
@@ -1952,7 +1971,7 @@ export default function App() {
                }`}
              >
                <div className="flex items-center gap-2">
-                 <div className={`p-1 rounded-md ${selectedSheet === 'INSTITUTIONAL_RANKING' ? 'bg-white/20 text-white' : 'bg-yellow-50 dark:bg-yellow-900/40 text-yellow-500 dark:text-yellow-400'}`}>
+                 <div className={`p-1 rounded-md ${selectedSheet === 'INSTITUTIONAL_RANKING' ? 'bg-white text-yellow-600 dark:bg-yellow-900/40 dark:text-yellow-400 shadow-sm' : 'bg-yellow-50 dark:bg-yellow-900/40 text-yellow-500 dark:text-yellow-400'}`}>
                     <Trophy className="w-4 h-4" />
                  </div>
                  <span className="truncate">法人買賣超排行</span>
@@ -2225,14 +2244,19 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                {selectedSheet && selectedSheet !== 'MULTI_FILTER' && selectedSheet !== 'FAVORITES' && SHEET_DESCRIPTIONS[selectedSheet] && (
+                {selectedSheet && selectedSheet !== 'MULTI_FILTER' && selectedSheet !== 'FAVORITES' && (SHEET_DESCRIPTIONS[selectedSheet] || SHEET_UPDATE_TIMES[selectedSheet]) && (
                   <div className="bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-100 dark:border-indigo-800 rounded-xl p-4 shadow-sm flex items-start gap-3 animate-in fade-in shrink-0">
                     <div className="bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 rounded-full p-1 shrink-0 mt-0.5">
                        <AlertCircle className="w-4 h-4" />
                     </div>
                     <div>
                         <h4 className="text-sm font-semibold text-indigo-900 mb-0.5">工作表說明</h4>
-                        <p className="text-indigo-800 text-sm leading-relaxed">{SHEET_DESCRIPTIONS[selectedSheet]}</p>
+                        {SHEET_DESCRIPTIONS[selectedSheet] && (
+                           <p className="text-indigo-800 text-sm leading-relaxed mb-0.5">{SHEET_DESCRIPTIONS[selectedSheet]}</p>
+                        )}
+                        {SHEET_UPDATE_TIMES[selectedSheet] && (
+                           <p className="text-indigo-700/80 text-xs mt-1">* {SHEET_UPDATE_TIMES[selectedSheet]}</p>
+                        )}
                     </div>
                   </div>
                 )}

@@ -117,7 +117,7 @@ export const InstitutionalRanking: React.FC<InstitutionalRankingProps> = ({ allS
             </div>
           )}
           <div className="text-xs text-gray-500 dark:text-gray-400 px-1">
-            * 每天17:00更新
+            * 交易日17:00更新
           </div>
         </div>
       </div>
