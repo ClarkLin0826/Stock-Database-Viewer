@@ -1535,7 +1535,12 @@ export default function App() {
       }
       
       const aiReportColumn = columns.find(c => c.includes('AI') && (c.includes('總結') || c.includes('報告') || c.includes('結論')));
-      let aiReportText = dashboardData[0]?.[aiReportColumn as string] || '';
+      
+      const aiReportTexts = dashboardData
+          .map(row => row[aiReportColumn as string])
+          .filter(text => text && typeof text === 'string' && text.trim() !== '');
+      let aiReportText = Array.from(new Set(aiReportTexts)).join('\n\n');
+      
       let dateText = dashboardData[0]?.['備份日期'] || dashboardData[0]?.['日期'] || '';
       
       if (dateText && typeof dateText === 'string' && dateText.includes(' ')) {
