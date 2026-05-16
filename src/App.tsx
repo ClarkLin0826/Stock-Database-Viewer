@@ -1787,7 +1787,18 @@ export default function App() {
           const isNegative = changeNum < 0;
           
           return (
-              <div key={`${symbol}-${idx}`} onClick={() => !isUS && setSelectedRowInfo(row)} className={`relative bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center text-center transition-all animate-in zoom-in-95 duration-500 ${!isUS ? 'hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800 cursor-pointer' : ''}`} style={{ animationDelay: `${Math.min(idx * 30, 500)}ms` }}>
+              <div 
+                  key={`${symbol}-${idx}`} 
+                  onClick={() => {
+                      if (isUS && symbol) {
+                          window.open(`https://finance.yahoo.com/quote/${symbol}`, '_blank', 'noopener,noreferrer');
+                      } else if (!isUS) {
+                          setSelectedRowInfo(row);
+                      }
+                  }} 
+                  className={`relative bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center text-center transition-all animate-in zoom-in-95 duration-500 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800 cursor-pointer`} 
+                  style={{ animationDelay: `${Math.min(idx * 30, 500)}ms` }}
+              >
                  {!isUS && symbol && (
                     <button 
                        onClick={(e) => toggleFavorite(e, row)}
