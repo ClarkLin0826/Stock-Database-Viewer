@@ -1541,19 +1541,42 @@ export default function App() {
       
       let aiReportText = '';
       if (aiReportColumn) {
-          const aiReportTexts = dashboardData
-              .map(row => row[aiReportColumn as string])
-              .filter(text => text && typeof text === 'string' && text.trim() !== '');
-          aiReportText = Array.from(new Set(aiReportTexts)).join('\n\n');
+          let currentReportDate = '';
+          const aiReportTexts: string[] = [];
+          for (const row of data) {
+              let rowDate = row['備份日期'] || row['日期'] || '';
+              if (rowDate && typeof rowDate === 'string') {
+                  rowDate = rowDate.includes(' ') ? rowDate.split(' ')[0] : rowDate;
+                  if (rowDate) currentReportDate = rowDate;
+              }
+              
+              if (currentReportDate === targetDate) {
+                  const text = row[aiReportColumn as string];
+                  if (text && typeof text === 'string' && text.trim() !== '') {
+                      aiReportTexts.push(text.trim());
+                  }
+              }
+          }
+          if (aiReportTexts.length > 0) {
+              aiReportText = Array.from(new Set(aiReportTexts)).join('\n\n');
+          }
       }
       
       if (!aiReportText) {
           const aiReportTexts: string[] = [];
-          for (const row of dashboardData) {
-              for (const key of Object.keys(row)) {
-                  const val = row[key];
-                  if (typeof val === 'string' && (val.includes('AI') || val.includes('🤖')) && (val.includes('總結') || val.includes('報告') || val.includes('結論'))) {
-                      aiReportTexts.push(val);
+          let currentReportDate = '';
+          for (const row of data) {
+              let rowDate = row['備份日期'] || row['日期'] || '';
+              if (rowDate && typeof rowDate === 'string') {
+                  rowDate = rowDate.includes(' ') ? rowDate.split(' ')[0] : rowDate;
+                  if (rowDate) currentReportDate = rowDate;
+              }
+              if (currentReportDate === targetDate) {
+                  for (const key of Object.keys(row)) {
+                      const val = row[key];
+                      if (typeof val === 'string' && (val.includes('AI') || val.includes('🤖')) && (val.includes('總結') || val.includes('報告') || val.includes('結論'))) {
+                          aiReportTexts.push(val.trim());
+                      }
                   }
               }
           }
@@ -1578,9 +1601,9 @@ export default function App() {
           
           const getCategoryOrder = (name) => {
               if (!name) return 99;
-              if (/(道瓊|S&P 500|標普|那斯達克|費城半導體|費半|羅素|VIX|殖利率|指數)/i.test(name)) return 1;
+              if (/(道瓊|S&P 500|標普|那斯達克|費城半導體|費半|羅素|VIX|殖利|指數)/i.test(name)) return 1;
               if (/期貨/i.test(name)) return 2;
-              if (/(ETF|類股)/i.test(name)) return 3;
+              if (/(\bETF\b|類股)/i.test(name)) return 3;
               if (/(比特幣|以太幣|加密貨幣|虛擬貨幣|BTC|ETH)/i.test(name)) return 5;
               return 4;
           };
@@ -1590,6 +1613,9 @@ export default function App() {
               const nameB = b['名稱'] || String(b['代碼'] || b['代號'] || '') || '';
               const orderA = getCategoryOrder(nameA);
               const orderB = getCategoryOrder(nameB);
+              if (orderA === orderB) {
+                  return nameA.localeCompare(nameB);
+              }
               return orderA - orderB;
           });
 
