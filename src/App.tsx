@@ -1476,10 +1476,13 @@ export default function App() {
       let dashboardData = data;
       let dashboardSortedData = sortedData;
       
+      let targetPlusOneStr = '';
       if (targetDate) {
           const targetPlusOne = new Date(targetDate);
-          targetPlusOne.setDate(targetPlusOne.getDate() + 1);
-          const targetPlusOneStr = targetPlusOne.toISOString().split('T')[0];
+          if (!isNaN(targetPlusOne.getTime())) {
+              targetPlusOne.setDate(targetPlusOne.getDate() + 1);
+              targetPlusOneStr = targetPlusOne.toISOString().split('T')[0];
+          }
 
           const filteredData = data.filter(row => {
               let rowDate = row['備份日期'] || row['日期'] || '';
@@ -1488,7 +1491,7 @@ export default function App() {
               }
               const name = row['名稱'] || row['公司名稱'] || row['股票名稱'] || row['證券名稱'] || '';
               if (selectedSheet === '美股早報' && (name === '比特幣' || name === '以太幣')) {
-                  return rowDate === targetDate || rowDate === targetPlusOneStr;
+                  return rowDate === targetDate || (targetPlusOneStr && rowDate === targetPlusOneStr);
               }
               return rowDate === targetDate;
           });
@@ -1500,7 +1503,7 @@ export default function App() {
               }
               const name = row['名稱'] || row['公司名稱'] || row['股票名稱'] || row['證券名稱'] || '';
               if (selectedSheet === '美股早報' && (name === '比特幣' || name === '以太幣')) {
-                  return rowDate === targetDate || rowDate === targetPlusOneStr;
+                  return rowDate === targetDate || (targetPlusOneStr && rowDate === targetPlusOneStr);
               }
               return rowDate === targetDate;
           });
@@ -1536,10 +1539,28 @@ export default function App() {
       
       const aiReportColumn = columns.find(c => c.includes('AI') && (c.includes('總結') || c.includes('報告') || c.includes('結論')));
       
-      const aiReportTexts = dashboardData
-          .map(row => row[aiReportColumn as string])
-          .filter(text => text && typeof text === 'string' && text.trim() !== '');
-      let aiReportText = Array.from(new Set(aiReportTexts)).join('\n\n');
+      let aiReportText = '';
+      if (aiReportColumn) {
+          const aiReportTexts = dashboardData
+              .map(row => row[aiReportColumn as string])
+              .filter(text => text && typeof text === 'string' && text.trim() !== '');
+          aiReportText = Array.from(new Set(aiReportTexts)).join('\n\n');
+      }
+      
+      if (!aiReportText) {
+          const aiReportTexts: string[] = [];
+          for (const row of dashboardData) {
+              for (const key of Object.keys(row)) {
+                  const val = row[key];
+                  if (typeof val === 'string' && (val.includes('AI') || val.includes('🤖')) && (val.includes('總結') || val.includes('報告') || val.includes('結論'))) {
+                      aiReportTexts.push(val);
+                  }
+              }
+          }
+          if (aiReportTexts.length > 0) {
+              aiReportText = Array.from(new Set(aiReportTexts)).join('\n\n');
+          }
+      }
       
       let dateText = dashboardData[0]?.['備份日期'] || dashboardData[0]?.['日期'] || '';
       
@@ -1832,34 +1853,38 @@ export default function App() {
 
       return (
           <div className="flex flex-col gap-6 w-full p-2 md:p-6 pb-20 animate-in fade-in duration-500">
-              {aiReportText && (
-                  <div className="bg-white dark:bg-gray-900 rounded-xl p-5 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                      <div className="flex flex-col gap-1 mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
-                          <div className="flex items-center gap-2">
-                              <Icon className={`w-6 h-6 ${isUS ? 'text-orange-500' : 'text-indigo-400'}`} />
-                              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 tracking-tight">{title}</h2>
-                              <div className="ml-auto flex items-center gap-2">
-                                  {availableDashboardDates.length > 0 && (
-                                      <select
-                                          value={selectedDashboardDate}
-                                          onChange={(e) => setSelectedDashboardDate(e.target.value)}
-                                          className="block py-1 px-3 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner"
-                                      >
-                                          <option value="NEWEST">最新</option>
-                                          {availableDashboardDates.map(date => (
-                                              <option key={date} value={date}>{date}</option>
-                                          ))}
-                                      </select>
-                                  )}
-                                  {dateText && <span className="hidden sm:inline-block text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{dateText}</span>}
-                              </div>
+              <div className="bg-white dark:bg-gray-900 rounded-xl p-5 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                  <div className="flex flex-col gap-1 mb-4 border-b border-gray-100 dark:border-gray-800 pb-4">
+                      <div className="flex items-center gap-2">
+                          <Icon className={`w-6 h-6 ${isUS ? 'text-orange-500' : 'text-indigo-400'}`} />
+                          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 tracking-tight">{title}</h2>
+                          <div className="ml-auto flex items-center gap-2">
+                              {availableDashboardDates.length > 0 && (
+                                  <select
+                                      value={selectedDashboardDate}
+                                      onChange={(e) => setSelectedDashboardDate(e.target.value)}
+                                      className="block py-1 px-3 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner"
+                                  >
+                                      <option value="NEWEST">最新</option>
+                                      {availableDashboardDates.map(date => (
+                                          <option key={date} value={date}>{date}</option>
+                                      ))}
+                                  </select>
+                              )}
+                              {dateText && <span className="hidden sm:inline-block text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{dateText}</span>}
                           </div>
                       </div>
+                  </div>
+                  {aiReportText ? (
                       <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none prose-indigo markdown-body leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                           <Markdown>{aiReportText}</Markdown>
                       </div>
-                  </div>
-              )}
+                  ) : (
+                      <div className="text-gray-500 dark:text-gray-400 text-sm italic">
+                          此日期沒有 {title}
+                      </div>
+                  )}
+              </div>
               
               {sections.map((section, sIdx) => (
                   <div key={sIdx} className="flex flex-col gap-3">
