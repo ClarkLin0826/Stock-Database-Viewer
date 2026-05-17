@@ -147,9 +147,11 @@ export default function App() {
 
   // Month filter state
   const [selectedDashboardDate, setSelectedDashboardDate] = useState<string>("NEWEST");
+  const [dashboardSortOrder, setDashboardSortOrder] = useState<string>("category");
   
   useEffect(() => {
       setSelectedDashboardDate("NEWEST");
+      setDashboardSortOrder("category");
   }, [selectedSheet]);
   const [selectedMonth, setSelectedMonth] = useState<string>("ALL");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
@@ -1609,14 +1611,28 @@ export default function App() {
           };
 
           cardsData = [...cardsData].sort((a, b) => {
-              const nameA = a['名稱'] || String(a['代碼'] || a['代號'] || '') || '';
-              const nameB = b['名稱'] || String(b['代碼'] || b['代號'] || '') || '';
-              const orderA = getCategoryOrder(nameA);
-              const orderB = getCategoryOrder(nameB);
-              if (orderA === orderB) {
-                  return nameA.localeCompare(nameB);
+              if (dashboardSortOrder === 'changeDesc') {
+                  const getChange = (row) => parseFloat(row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)'] || '0') || 0;
+                  return getChange(b) - getChange(a);
+              } else if (dashboardSortOrder === 'changeAsc') {
+                  const getChange = (row) => parseFloat(row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)'] || '0') || 0;
+                  return getChange(a) - getChange(b);
+              } else if (dashboardSortOrder === 'volumeDesc') {
+                  const getVolume = (row) => parseFloat(row['成交量(百萬)'] || row['成交量'] || '0') || 0;
+                  return getVolume(b) - getVolume(a);
+              } else if (dashboardSortOrder === 'volumeAsc') {
+                  const getVolume = (row) => parseFloat(row['成交量(百萬)'] || row['成交量'] || '0') || 0;
+                  return getVolume(a) - getVolume(b);
+              } else {
+                  const nameA = a['名稱'] || String(a['代碼'] || a['代號'] || '') || '';
+                  const nameB = b['名稱'] || String(b['代碼'] || b['代號'] || '') || '';
+                  const orderA = getCategoryOrder(nameA);
+                  const orderB = getCategoryOrder(nameB);
+                  if (orderA === orderB) {
+                      return nameA.localeCompare(nameB);
+                  }
+                  return orderA - orderB;
               }
-              return orderA - orderB;
           });
 
           if (cardsData.length > 0) {
@@ -1818,6 +1834,7 @@ export default function App() {
           const priceStr = row['目前股價'] || row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'];
           const changeStr = row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)'];
           const desc = row['說明'];
+          const volumeStr = row['成交量(百萬)'] || row['成交量'];
           
           let price = priceStr;
           if (priceStr !== null && priceStr !== undefined && !isNaN(Number(priceStr)) && priceStr !== '') {
@@ -1868,6 +1885,11 @@ export default function App() {
                           return changeNum !== 0 ? (changeNum > 0 ? '+' + changeDisplay : changeDisplay) : (change ? changeDisplay : '-');
                       })()}
                   </div>
+                  {volumeStr && (dashboardSortOrder.includes('volume') || volumeStr !== '0' && Number(volumeStr) !== 0) && (
+                      <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                          成交量: <span className="font-semibold text-gray-700 dark:text-gray-300">{volumeStr}M</span>
+                      </div>
+                  )}
                   {desc && (
                      <div className="mt-3 text-xs text-gray-500 dark:text-gray-400 text-left w-full line-clamp-3">
                          {desc}
@@ -1881,10 +1903,23 @@ export default function App() {
           <div className="flex flex-col gap-6 w-full p-2 md:p-6 pb-20 animate-in fade-in duration-500">
               <div className="bg-white dark:bg-gray-900 rounded-xl p-5 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
                   <div className="flex flex-col gap-1 mb-4 border-b border-gray-100 dark:border-gray-800 pb-4">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                           <Icon className={`w-6 h-6 ${isUS ? 'text-orange-500' : 'text-indigo-400'}`} />
                           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 tracking-tight">{title}</h2>
-                          <div className="ml-auto flex items-center gap-2">
+                          <div className="ml-auto flex items-center gap-2 flex-wrap">
+                              {isUS && sections.length > 0 && (
+                                  <select
+                                      value={dashboardSortOrder}
+                                      onChange={(e) => setDashboardSortOrder(e.target.value)}
+                                      className="block py-1 px-2 md:px-3 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner"
+                                  >
+                                      <option value="category">預設排序</option>
+                                      <option value="changeDesc">漲幅由大到小</option>
+                                      <option value="changeAsc">跌幅由大到小</option>
+                                      <option value="volumeDesc">成交量由大到小</option>
+                                      <option value="volumeAsc">成交量由小到大</option>
+                                  </select>
+                              )}
                               {availableDashboardDates.length > 0 && (
                                   <select
                                       value={selectedDashboardDate}
