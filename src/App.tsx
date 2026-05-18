@@ -1643,11 +1643,24 @@ export default function App() {
       } else {
           const isNewFormat = columns.includes('潛力股點評') || columns.includes('說明');
           
+          let targetDateStr = targetDate;
+          if (targetDateStr && targetDateStr.includes(' ')) {
+              targetDateStr = targetDateStr.split(' ')[0];
+          }
+
           if (isNewFormat) {
               const allStocksMap = new Map();
               Object.entries(allSheetsData).forEach(([sheetName, sheetData]) => {
                   if (sheetName === selectedSheet) return;
                   sheetData.forEach(row => {
+                      let rowDate = row['備份日期'] || row['日期'] || '';
+                      if (rowDate && typeof rowDate === 'string' && rowDate.includes(' ')) {
+                          rowDate = rowDate.split(' ')[0];
+                      }
+                      if (targetDateStr && rowDate && rowDate !== targetDateStr && rowDate !== targetPlusOneStr) {
+                          return; // only keep data for the current dashboard date
+                      }
+
                       const symbol = getSymbol(row);
                       if (symbol) {
                           const hasPriceData = row['目前股價'] || row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'] || row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)'];
@@ -1675,7 +1688,15 @@ export default function App() {
                           targetSheet = allSheetsData[sheetName.replace(/工作表$/, '')];
                       }
                       if (targetSheet) {
-                          const found = targetSheet.find(r => getSymbol(r) === symbol);
+                          const found = targetSheet.find(r => {
+                              if (getSymbol(r) !== symbol) return false;
+                              let rDate = r['備份日期'] || r['日期'] || '';
+                              if (rDate && typeof rDate === 'string' && rDate.includes(' ')) {
+                                  rDate = rDate.split(' ')[0];
+                              }
+                              if (targetDateStr && rDate && rDate !== targetDateStr && rDate !== targetPlusOneStr) return false;
+                              return true;
+                          });
                           if (found) return { ...found, '代碼': symbol, '名稱': name };
                       }
                   }
@@ -1705,11 +1726,25 @@ export default function App() {
                           section = { title: category, sheets: [], stocks: [] };
                           sections.push(section);
                       }
-                      sourceSheets.forEach((s: string) => {
-                          if (!section.sheets.includes(s)) section.sheets.push(s);
+                      
+                      let mappedSheets = [...sourceSheets];
+                      if (category.includes('強勢')) {
+                          mappedSheets = ['上市價量齊揚', '上櫃價量齊揚'];
+                      } else if (category.includes('熱門')) {
+                          mappedSheets = ['上市_值得注意', '上櫃_值得注意'];
+                      } else if (category.includes('投信')) {
+                          mappedSheets = ['投信連買篩選'];
+                      } else if (category.includes('低估值')) {
+                          mappedSheets = ['上市櫃低於淨值殖利率大於5'];
+                      } else if (category.includes('低檔')) {
+                          mappedSheets = ['月KD'];
+                      }
+                      
+                      mappedSheets.forEach((s: string) => {
+                          if (!section!.sheets.includes(s)) section!.sheets.push(s);
                       });
                       
-                      const stockData = getStockRow(symbol, name || '未命名', sourceSheets);
+                      const stockData = getStockRow(symbol, name || '未命名', mappedSheets);
                       let mergedDate = row['備份日期'] || row['日期'] || stockData?.['備份日期'] || stockData?.['日期'];
                       if (mergedDate && typeof mergedDate === 'string' && mergedDate.includes(' ')) {
                           mergedDate = mergedDate.split(' ')[0];
@@ -1739,6 +1774,14 @@ export default function App() {
               Object.entries(allSheetsData).forEach(([sheetName, sheetData]) => {
                   if (sheetName === selectedSheet) return;
                   sheetData.forEach(row => {
+                      let rowDate = row['備份日期'] || row['日期'] || '';
+                      if (rowDate && typeof rowDate === 'string' && rowDate.includes(' ')) {
+                          rowDate = rowDate.split(' ')[0];
+                      }
+                      if (targetDateStr && rowDate && rowDate !== targetDateStr && rowDate !== targetPlusOneStr) {
+                          return; // only keep data for the current dashboard date
+                      }
+
                       const symbol = getSymbol(row);
                       if (symbol) {
                           const hasPriceData = row['目前股價'] || row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'] || row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)'];
@@ -1763,9 +1806,20 @@ export default function App() {
               const getStockRow = (symbol: string, name: string, preferredSheets: string[]) => {
                   // 1. Check preferred sheets first
                   for (const sheetName of preferredSheets) {
-                      const targetSheet = allSheetsData[sheetName];
+                      let targetSheet = allSheetsData[sheetName];
+                      if (!targetSheet) {
+                          targetSheet = allSheetsData[sheetName.replace(/工作表$/, '')];
+                      }
                       if (targetSheet) {
-                          const found = targetSheet.find(r => getSymbol(r) === symbol);
+                          const found = targetSheet.find(r => {
+                              if (getSymbol(r) !== symbol) return false;
+                              let rDate = r['備份日期'] || r['日期'] || '';
+                              if (rDate && typeof rDate === 'string' && rDate.includes(' ')) {
+                                  rDate = rDate.split(' ')[0];
+                              }
+                              if (targetDateStr && rDate && rDate !== targetDateStr && rDate !== targetPlusOneStr) return false;
+                              return true;
+                          });
                           if (found) return { ...found, '代碼': symbol, '名稱': name };
                       }
                   }
@@ -1954,11 +2008,6 @@ export default function App() {
                       <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2 px-2 md:px-0">
                           <Bookmark className="w-5 h-5 text-indigo-500" />
                           {section.title}
-                          {section.sheets.length > 0 && (
-                              <span className="text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full ml-auto">
-                                  資料來源: {section.sheets.join(', ')}
-                              </span>
-                          )}
                       </h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
                           {section.stocks.map((row, idx) => renderCard(row, idx))}
