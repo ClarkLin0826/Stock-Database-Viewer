@@ -1841,9 +1841,24 @@ export default function App() {
                   }
                   
                   if (sheetsInLine.length > 0) {
+                      const rawTitle = line.replace(/：選自.*工作表/, '').replace(/【.*?】/g, '').trim() || sheetsInLine[0];
+                      let mappedSheets = [...sheetsInLine];
+                      
+                      if (rawTitle.includes('強勢') || sheetsInLine.some(s => s.includes('強勢'))) {
+                          mappedSheets = ['上市價量齊揚', '上櫃價量齊揚'];
+                      } else if (rawTitle.includes('熱門') || sheetsInLine.some(s => s.includes('熱門'))) {
+                          mappedSheets = ['上市_值得注意', '上櫃_值得注意'];
+                      } else if (rawTitle.includes('投信') || sheetsInLine.some(s => s.includes('投信'))) {
+                          mappedSheets = ['投信連買篩選'];
+                      } else if (rawTitle.includes('低估值') || sheetsInLine.some(s => s.includes('低估值'))) {
+                          mappedSheets = ['上市櫃低於淨值殖利率大於5'];
+                      } else if (rawTitle.includes('低檔') || sheetsInLine.some(s => s.includes('低檔'))) {
+                          mappedSheets = ['月KD'];
+                      }
+                      
                       currentSection = {
                           title: line.replace(/：選自.*工作表/, '').trim(),
-                          sheets: sheetsInLine,
+                          sheets: mappedSheets,
                           stocks: []
                       };
                       sections.push(currentSection);
