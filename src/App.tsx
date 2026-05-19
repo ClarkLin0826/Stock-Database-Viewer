@@ -291,6 +291,7 @@ export default function App() {
     '庫藏股': '交易日隔天凌晨1:30更新',
     '財報_財務報告': '交易日隔天凌晨1:30更新',
     '美股早報': '早上6:30更新昨天晚上美股資訊',
+    '早晨財經新聞': '早上更新財經新聞資訊',
   };
 
   const [needsGasUpdate, setNeedsGasUpdate] = useState(false);
@@ -846,9 +847,8 @@ export default function App() {
             var row = data[i];
             var obj = {};
             for (var j = 0; j < headers.length; j++) {
-              if (headers[j]) {
-                obj[headers[j]] = row[j];
-              }
+              var key = headers[j] || ('Column' + (j + 1));
+              obj[key] = row[j];
             }
             result.push(obj);
           }
@@ -890,9 +890,8 @@ export default function App() {
       var row = data[i];
       var obj = {};
       for (var j = 0; j < headers.length; j++) {
-        if (headers[j]) {
-          obj[headers[j]] = row[j];
-        }
+        var key = headers[j] || ('Column' + (j + 1));
+        obj[key] = row[j];
       }
       result.push(obj);
     }
@@ -914,9 +913,11 @@ export default function App() {
   };
 
   const availableDashboardDates = useMemo(() => {
-     if (selectedSheet !== '台股盤後資料AI分析' && selectedSheet !== '美股早報') return [];
+     if (selectedSheet !== '台股盤後資料AI分析' && selectedSheet !== '美股早報' && selectedSheet !== '早晨財經新聞') return [];
      const sheetData = allSheetsData[selectedSheet] || [];
      if (sheetData.length === 0) return [];
+     
+     const sheetCols = Object.keys(sheetData[0] || {});
      
      const dates = new Set<string>();
      sheetData.forEach(row => {
@@ -925,10 +926,22 @@ export default function App() {
              return;
          }
 
-         let dateText = row['備份日期'] || row['日期'] || '';
-         if (dateText && typeof dateText === 'string' && dateText.includes(' ')) {
-             dateText = dateText.split(' ')[0];
+         let dateText = '';
+         if (selectedSheet === '早晨財經新聞') {
+             const rawDate = row[sheetCols[1]] || '';
+             if (rawDate && typeof rawDate === 'string') {
+                 const d = new Date(rawDate);
+                 if (!isNaN(d.getTime())) {
+                     dateText = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                 }
+             }
+         } else {
+             dateText = row['備份日期'] || row['日期'] || '';
+             if (dateText && typeof dateText === 'string' && dateText.includes(' ')) {
+                 dateText = dateText.split(' ')[0];
+             }
          }
+         
          if (dateText) {
              dates.add(dateText);
          }
@@ -1473,7 +1486,7 @@ export default function App() {
   };
 
   const renderDashboardView = () => {
-      const isUS = selectedSheet === '美股早報';
+      const isUS = selectedSheet === '美股早報' || selectedSheet === '早晨財經新聞';
       
       const targetDate = selectedDashboardDate === 'NEWEST' ? availableDashboardDates[0] : selectedDashboardDate;
       
@@ -1488,7 +1501,19 @@ export default function App() {
               targetPlusOneStr = targetPlusOne.toISOString().split('T')[0];
           }
 
-          const filteredData = data.filter(row => {
+          const filterFn = (row) => {
+              if (selectedSheet === '早晨財經新聞') {
+                  const sheetCols = columns;
+                  const rawDate = row[sheetCols[1]] || '';
+                  if (rawDate && typeof rawDate === 'string') {
+                      const d = new Date(rawDate);
+                      if (!isNaN(d.getTime())) {
+                          const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                          return dateStr === targetDate;
+                      }
+                  }
+                  return false;
+              }
               let rowDate = row['備份日期'] || row['日期'] || '';
               if (rowDate && typeof rowDate === 'string' && rowDate.includes(' ')) {
                   rowDate = rowDate.split(' ')[0];
@@ -1498,19 +1523,10 @@ export default function App() {
                   return rowDate === targetDate || (targetPlusOneStr && rowDate === targetPlusOneStr);
               }
               return rowDate === targetDate;
-          });
+          };
 
-          const filteredSortedData = sortedData.filter(row => {
-              let rowDate = row['備份日期'] || row['日期'] || '';
-              if (rowDate && typeof rowDate === 'string' && rowDate.includes(' ')) {
-                  rowDate = rowDate.split(' ')[0];
-              }
-              const name = row['名稱'] || row['公司名稱'] || row['股票名稱'] || row['證券名稱'] || '';
-              if (selectedSheet === '美股早報' && (name === '比特幣' || name === '以太幣')) {
-                  return rowDate === targetDate || (targetPlusOneStr && rowDate === targetPlusOneStr);
-              }
-              return rowDate === targetDate;
-          });
+          const filteredData = data.filter(filterFn);
+          const filteredSortedData = sortedData.filter(filterFn);
 
           // Deduplicate crypto, keeping the latest date
           const deduplicateCrypto = (arr: any[]) => {
@@ -1541,51 +1557,65 @@ export default function App() {
           dashboardSortedData = deduplicateCrypto(filteredSortedData);
       }
       
-      const aiReportColumn = columns.find(c => c.includes('AI') && (c.includes('總結') || c.includes('報告') || c.includes('結論')));
-      
       let aiReportText = '';
-      if (aiReportColumn) {
-          let currentReportDate = '';
-          const aiReportTexts: string[] = [];
-          for (const row of data) {
-              let rowDate = row['備份日期'] || row['日期'] || '';
-              if (rowDate && typeof rowDate === 'string') {
-                  rowDate = rowDate.includes(' ') ? rowDate.split(' ')[0] : rowDate;
-                  if (rowDate) currentReportDate = rowDate;
-              }
-              
-              if (currentReportDate === targetDate) {
-                  const text = row[aiReportColumn as string];
-                  if (text && typeof text === 'string' && text.trim() !== '') {
-                      aiReportTexts.push(text.trim());
+      if (selectedSheet === '早晨財經新聞') {
+          const possibleCols = [columns[5], 'Column6', columns.find(c => c && (c.includes('AI') || c.includes('報告') || c.includes('洞察')))].filter(Boolean);
+          
+          for (const col of possibleCols) {
+              if (col) {
+                  const aiReportVals = data.map(r => r[col] || '').filter(t => typeof t === 'string' && t.trim() !== '');
+                  if (aiReportVals.length > 0) {
+                      aiReportText = Array.from(new Set(aiReportVals)).join('\n\n');
+                      break;
                   }
               }
           }
-          if (aiReportTexts.length > 0) {
-              aiReportText = Array.from(new Set(aiReportTexts)).join('\n\n');
-          }
-      }
-      
-      if (!aiReportText) {
-          const aiReportTexts: string[] = [];
-          let currentReportDate = '';
-          for (const row of data) {
-              let rowDate = row['備份日期'] || row['日期'] || '';
-              if (rowDate && typeof rowDate === 'string') {
-                  rowDate = rowDate.includes(' ') ? rowDate.split(' ')[0] : rowDate;
-                  if (rowDate) currentReportDate = rowDate;
-              }
-              if (currentReportDate === targetDate) {
-                  for (const key of Object.keys(row)) {
-                      const val = row[key];
-                      if (typeof val === 'string' && (val.includes('AI') || val.includes('🤖')) && (val.includes('總結') || val.includes('報告') || val.includes('結論'))) {
-                          aiReportTexts.push(val.trim());
+      } else {
+          const aiReportColumn = columns.find(c => c.includes('AI') && (c.includes('總結') || c.includes('報告') || c.includes('結論')));
+          
+          if (aiReportColumn) {
+              let currentReportDate = '';
+              const aiReportTexts: string[] = [];
+              for (const row of data) {
+                  let rowDate = row['備份日期'] || row['日期'] || '';
+                  if (rowDate && typeof rowDate === 'string') {
+                      rowDate = rowDate.includes(' ') ? rowDate.split(' ')[0] : rowDate;
+                      if (rowDate) currentReportDate = rowDate;
+                  }
+                  
+                  if (currentReportDate === targetDate) {
+                      const text = row[aiReportColumn as string];
+                      if (text && typeof text === 'string' && text.trim() !== '') {
+                          aiReportTexts.push(text.trim());
                       }
                   }
               }
+              if (aiReportTexts.length > 0) {
+                  aiReportText = Array.from(new Set(aiReportTexts)).join('\n\n');
+              }
           }
-          if (aiReportTexts.length > 0) {
-              aiReportText = Array.from(new Set(aiReportTexts)).join('\n\n');
+          
+          if (!aiReportText) {
+              const aiReportTexts: string[] = [];
+              let currentReportDate = '';
+              for (const row of data) {
+                  let rowDate = row['備份日期'] || row['日期'] || '';
+                  if (rowDate && typeof rowDate === 'string') {
+                      rowDate = rowDate.includes(' ') ? rowDate.split(' ')[0] : rowDate;
+                      if (rowDate) currentReportDate = rowDate;
+                  }
+                  if (currentReportDate === targetDate) {
+                      for (const key of Object.keys(row)) {
+                          const val = row[key];
+                          if (typeof val === 'string' && (val.includes('AI') || val.includes('🤖')) && (val.includes('總結') || val.includes('報告') || val.includes('結論'))) {
+                              aiReportTexts.push(val.trim());
+                          }
+                      }
+                  }
+              }
+              if (aiReportTexts.length > 0) {
+                  aiReportText = Array.from(new Set(aiReportTexts)).join('\n\n');
+              }
           }
       }
       
@@ -1598,9 +1628,20 @@ export default function App() {
       const title = isUS ? 'AI 晨間總結' : 'AI 盤後總結';
       const Icon = isUS ? Sun : Moon;
 
-      let sections: {title: string, sheets: string[], stocks: any[]}[] = [];
+      let sections: {title: string, sheets: string[], stocks: any[], isNews?: boolean}[] = [];
 
-      if (isUS) {
+      if (selectedSheet === '早晨財經新聞') {
+          // Group by category (column 0)
+          const categoryCol = columns[0];
+          const categories = new Set(dashboardSortedData.map(r => r[categoryCol]).filter(Boolean));
+          
+          sections = Array.from(categories).map(cat => ({
+              title: String(cat),
+              sheets: [],
+              stocks: dashboardSortedData.filter(r => r[categoryCol] === cat),
+              isNews: true
+          }));
+      } else if (isUS) {
           let cardsData = dashboardSortedData.filter(row => row['目前股價'] || row['收盤價'] || row['成交價'] || row['最新股價'] || row['股價'] || row['今日漲跌幅(%)'] || row['今日漲跌幅'] || row['漲跌幅(%)'] || row['漲跌幅'] || row['日漲跌幅(%)'] || row['日漲跌幅'] || row['最新漲跌幅'] || row['最新漲跌幅(%)']);
           
           const getCategoryOrder = (name) => {
@@ -1638,7 +1679,8 @@ export default function App() {
           });
 
           if (cardsData.length > 0) {
-              sections.push({ title: '美股行情', sheets: [], stocks: cardsData });
+              const sectionTitle = selectedSheet === '美股早報' ? '美股行情' : '重點行情';
+              sections.push({ title: sectionTitle, sheets: [], stocks: cardsData });
           }
       } else {
           const isNewFormat = columns.includes('潛力股點評') || columns.includes('說明');
@@ -1925,16 +1967,16 @@ export default function App() {
               <div 
                   key={`${symbol}-${idx}`} 
                   onClick={() => {
-                      if (isUS && symbol) {
+                      if (selectedSheet === '美股早報' && symbol) {
                           window.open(`https://finance.yahoo.com/quote/${symbol}`, '_blank', 'noopener,noreferrer');
-                      } else if (!isUS) {
+                      } else {
                           setSelectedRowInfo(row);
                       }
-                  }} 
+                  }}  
                   className={`relative bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center text-center transition-all animate-in zoom-in-95 duration-500 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800 cursor-pointer`} 
                   style={{ animationDelay: `${Math.min(idx * 30, 500)}ms` }}
               >
-                 {!isUS && symbol && (
+                 {selectedSheet !== '美股早報' && symbol && (
                     <button 
                        onClick={(e) => toggleFavorite(e, row)}
                        className={`absolute top-2 right-2 p-1.5 rounded-full transition-colors z-10 ${
@@ -1978,7 +2020,7 @@ export default function App() {
                           <Icon className={`w-6 h-6 ${isUS ? 'text-orange-500' : 'text-indigo-400'}`} />
                           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 tracking-tight">{title}</h2>
                           <div className="ml-auto flex items-center gap-2 flex-wrap">
-                              {isUS && sections.length > 0 && (
+                              {isUS && sections.length > 0 && selectedSheet !== '早晨財經新聞' && (
                                   <select
                                       value={dashboardSortOrder}
                                       onChange={(e) => setDashboardSortOrder(e.target.value)}
@@ -2024,8 +2066,37 @@ export default function App() {
                           <Bookmark className="w-5 h-5 text-indigo-500" />
                           {section.title}
                       </h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-                          {section.stocks.map((row, idx) => renderCard(row, idx))}
+                      <div className={section.isNews ? "flex flex-col gap-3" : "grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4"}>
+                          {section.stocks.map((row, idx) => {
+                              if (section.isNews) {
+                                  const headline = row[columns[2]] || '';
+                                  const link = row[columns[3]] || '';
+                                  const pubTime = row[columns[1]] || '';
+                                  const parsedUrl = link ? (() => { try { return new URL(link).hostname; } catch(e) { return ''; } })() : '';
+                                  
+                                  return (
+                                      <a
+                                          key={`news-${idx}`}
+                                          href={link || '#'}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className={`block bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-all hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 ${link ? 'cursor-pointer' : 'cursor-default'}`}
+                                      >
+                                          <h4 className="text-base font-semibold text-gray-900 dark:text-gray-50 mb-1 leading-snug break-words">
+                                             {headline || '無標題'}
+                                          </h4>
+                                          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mt-2 flex-wrap gap-2">
+                                             <div className="flex items-center gap-2 max-w-[60%] truncate pr-1">
+                                                {parsedUrl && <span>{parsedUrl}</span>}
+                                             </div>
+                                             {pubTime && <span className="opacity-80 shrink-0 ml-auto bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium">{pubTime}</span>}
+                                          </div>
+                                      </a>
+                                  )
+                              } else {
+                                  return renderCard(row, idx);
+                              }
+                          })}
                       </div>
                   </div>
               ))}
@@ -2429,7 +2500,7 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                {selectedSheet === '美股早報' || selectedSheet === '台股盤後資料AI分析' ? (
+                {(selectedSheet === '美股早報' || selectedSheet === '早晨財經新聞' || selectedSheet === '台股盤後資料AI分析') ? (
                      <div className="flex-1 overflow-auto custom-scrollbar -mx-4 sm:-mx-6 -mb-4 sm:-mb-6">
                         {renderDashboardView()}
                      </div>
@@ -2872,7 +2943,7 @@ export default function App() {
                   })()}
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                      {(() => {
-                        const isDashboardView = selectedSheet === '台股盤後資料AI分析' || selectedSheet === '美股早報';
+                        const isDashboardView = selectedSheet === '台股盤後資料AI分析' || selectedSheet === '美股早報' || selectedSheet === '早晨財經新聞';
                         const displayCols = isDashboardView 
                            ? Object.keys(selectedRowInfo).filter(k => k !== '名稱' && k !== '代碼' && k !== '證券代號' && !k.startsWith('_'))
                            : columns;
